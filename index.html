@@ -13,6 +13,7 @@
       <div>
         <p class="eyebrow">Tumbleblock</p>
         <h1 id="level-title">First Steps</h1>
+        <p id="build-stamp" style="color:#8e8a80;font:9px system-ui,sans-serif;letter-spacing:.5px;margin-top:3px">Local build</p>
       </div>
       <div class="stats">
         <span>Level <strong id="level-number">1</strong></span>
@@ -36,7 +37,7 @@
   <dialog id="level-dialog">
     <div class="dialog-head">
       <h2>Levels</h2>
-      <button id="close-levels" aria-label="Close">×</button>
+      <button id="close-levels" aria-label="Close">x</button>
     </div>
     <div id="level-grid" class="level-grid"></div>
   </dialog>
@@ -48,6 +49,13 @@
     <button id="next-level">Next level</button>
   </dialog>
 
+  <script src="build-info.js"></script>
+  <script>
+    const build = window.TUMBLEBLOCK_BUILD || {};
+    document.querySelector("#build-stamp").textContent = build.deployedAt
+      ? `Deployed ${new Date(build.deployedAt).toLocaleString()} | ${build.commit || "unknown"}`
+      : `Local build | ${build.commit || "uncommitted"}`;
+  </script>
   <script src="game.js"></script>
 </body>
 </html>
