@@ -10,7 +10,8 @@ Open `index.html` in a modern browser.
 
 - Click an exposed cube face to push the cube one space.
 - Drag a cube to roll it 90 degrees around a connected neighbor.
-- A longer drag can carry it 180 degrees around the same edge when both sides are clear.
+- A roll uses the shortest connected edge path toward the drag direction, up to two quarter-turns.
+- Drag empty space to orbit both configurations with the shared trackball camera.
 - Drag empty space to orbit both configurations.
 - Restarting is free. There is no undo; reversing a move costs a move.
 
