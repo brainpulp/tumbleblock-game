@@ -23,6 +23,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Add deployment timestamp
+        shell: bash
+        run: |
+          cat > build-info.js <<EOF
+          window.TUMBLEBLOCK_BUILD = {
+            deployedAt: "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            commit: "${GITHUB_SHA:0:7}",
+          };
+          EOF
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
