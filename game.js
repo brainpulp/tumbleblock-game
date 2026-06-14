@@ -69,12 +69,14 @@ let pointer = null;
 let shakeUntil = 0;
 let messageTimer = 0;
 let won = false;
+let animation = null;
 
 function loadLevel(index) {
   levelIndex = index;
   cubes = clone(levels[index].start);
   moves = 0;
   won = false;
+  animation = null;
   ui.resultDialog.close();
   localStorage.setItem("tumbleblock-level", index);
   updateUI();
@@ -101,8 +103,8 @@ function resize() {
 function project(v, origin, scale) {
   const view = VIEWS[viewIndex];
   return {
-    x: origin.x + dot(v, view.right) * scale * .5,
-    y: origin.y - dot(v, view.up) * scale * .25,
+    x: origin.x + dot(v, view.right) * scale / Math.sqrt(2),
+    y: origin.y - dot(v, view.up) * scale / Math.sqrt(6),
     depth: dot(v, view.depth),
   };
 }
@@ -130,14 +132,50 @@ function faceColor(cube, normal, mode) {
   return FACE_COLORS[cube.orient[dirIndex(normal)]];
 }
 
-function drawCluster(cluster, origin, scale, mode, interactive) {
-  const occupied = new Set(cluster.map(c => k(c.pos)));
+function animatedCube(cube, cubeIndex, now, animate) {
+  if (!animate || !animation || animation.index !== cubeIndex) return cube;
+  const raw = Math.min(1, (now - animation.started) / animation.duration);
+  const t = raw * raw * (3 - 2 * raw);
+  const pos = cube.pos.map((n, i) => n + (animation.destination[i] - n) * t);
+  if (animation.type === "roll") pos[2] += Math.sin(Math.PI * t) * .28 * animation.turns;
+  return { ...cube, pos, visualRotation: animation.type === "roll" ? { axis: animation.axis, angle: t * animation.turns * Math.PI / 2 } : null };
+}
+
+function rotateVector(v, axis, angle) {
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const c = cross(axis, v);
+  return v.map((n, i) => n * cos + c[i] * sin + axis[i] * dot(axis, v) * (1 - cos));
+}
+
+function polygonForAnimatedFace(cube, normal, origin, scale) {
+  const axis = normal.findIndex(n => n !== 0);
+  const others = [0,1,2].filter(i => i !== axis);
+  const center = cube.pos.map(n => n + .5);
+  return [[-1,-1], [1,-1], [1,1], [-1,1]].map(pair => {
+    const local = [-.5, -.5, -.5];
+    local[axis] = normal[axis] * .5;
+    local[others[0]] = pair[0] * .5;
+    local[others[1]] = pair[1] * .5;
+    const rotated = cube.visualRotation ? rotateVector(local, cube.visualRotation.axis, cube.visualRotation.angle) : local;
+    return project(add(center, rotated), origin, scale);
+  });
+}
+
+function drawCluster(cluster, origin, scale, mode, interactive, now = performance.now(), animate = false) {
+  const occupied = new Set(cluster.map((c, i) => animate && i === animation?.index ? "" : k(c.pos)));
   const faces = [];
   cluster.forEach((cube, cubeIndex) => {
+    const visual = animatedCube(cube, cubeIndex, now, animate);
     DIRS.forEach(normal => {
-      if (occupied.has(k(add(cube.pos, normal)))) return;
-      const poly = polygonForFace(cube.pos, normal, origin, scale);
-      const center = add(cube.pos, normal.map(n => n * .5));
+      if (!visual.visualRotation && occupied.has(k(add(cube.pos, normal)))) return;
+      const visualNormal = visual.visualRotation
+        ? rotateVector(normal, visual.visualRotation.axis, visual.visualRotation.angle)
+        : normal;
+      if (visual.visualRotation && dot(visualNormal, VIEWS[viewIndex].depth) <= 0) return;
+      const poly = visual.visualRotation
+        ? polygonForAnimatedFace(visual, normal, origin, scale)
+        : polygonForFace(visual.pos, normal, origin, scale);
+      const center = add(visual.pos, visualNormal.map(n => n * .5));
       faces.push({ cube, cubeIndex, normal, poly, depth: dot(center, VIEWS[viewIndex].depth) });
     });
   });
@@ -170,8 +208,9 @@ function render() {
   const shake = performance.now() < shakeUntil ? Math.sin(performance.now() * .09) * 3 : 0;
   const targetScale = Math.min(w * .1, h * .075, 42) / Math.max(1, bounds(level.target).span / 3);
   const workScale = Math.min(w * .17, h * .12, 74) / Math.max(1, bounds(cubes).span / 4);
-  drawCluster(level.target, { x: w / 2, y: h * .24 }, targetScale, level.mode, false);
-  drawCluster(cubes, { x: w / 2 + shake, y: h * .65 }, workScale, level.mode, true);
+  const now = performance.now();
+  drawCluster(level.target, { x: w / 2, y: h * .24 }, targetScale, level.mode, false, now);
+  drawCluster(cubes, { x: w / 2 + shake, y: h * .65 }, workScale, level.mode, !animation, now, true);
   ctx.strokeStyle = "#d8d3c8";
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 6]);
@@ -180,7 +219,7 @@ function render() {
   ctx.lineTo(w * .66, h * .39);
   ctx.stroke();
   ctx.setLineDash([]);
-  if (performance.now() < shakeUntil) requestAnimationFrame(render);
+  if (now < shakeUntil || animation) requestAnimationFrame(render);
 }
 
 function pointInPoly(point, poly) {
@@ -223,8 +262,7 @@ function validDestination(index, destination) {
 function doSlide(face) {
   const destination = add(face.cube.pos, neg(face.normal));
   if (!validDestination(face.cubeIndex, destination)) return blocked();
-  cubes[face.cubeIndex].pos = destination;
-  commitMove();
+  animateMove({ index: face.cubeIndex, destination, type: "slide", duration: 180 });
 }
 
 function rotateDirection(v, axis) {
@@ -275,7 +313,7 @@ function doRoll(index, drag) {
     if (candidate.turns === 2 && length < 64) continue;
     const len = Math.hypot(...candidate.screen);
     const score = dot(drag, candidate.screen) / (length * len);
-    const longTurnBonus = candidate.turns === 2 && length > 92 ? .2 : 0;
+    const longTurnBonus = candidate.turns === 2 && length > 120 ? .35 : -.12;
     if (score + longTurnBonus > bestScore) {
       best = candidate;
       bestScore = score + longTurnBonus;
@@ -292,9 +330,29 @@ function doRoll(index, drag) {
     });
     nextOrient = turned;
   }
-  cube.pos = best.destination;
-  cube.orient = nextOrient;
-  commitMove();
+  animateMove({
+    index,
+    destination: best.destination,
+    axis: best.axis,
+    turns: best.turns,
+    orient: nextOrient,
+    type: "roll",
+    duration: best.turns === 2 ? 440 : 280,
+  });
+  return true;
+}
+
+function animateMove(move) {
+  if (animation) return false;
+  animation = { ...move, started: performance.now() };
+  render();
+  setTimeout(() => {
+    const cube = cubes[move.index];
+    cube.pos = move.destination;
+    if (move.orient) cube.orient = move.orient;
+    animation = null;
+    commitMove();
+  }, move.duration);
   return true;
 }
 
@@ -359,6 +417,7 @@ function localPoint(event) {
 }
 
 canvas.addEventListener("pointerdown", event => {
+  if (animation) return;
   canvas.setPointerCapture(event.pointerId);
   const point = localPoint(event);
   const face = [...hitFaces].reverse().find(f => pointInPoly(point, f.poly));
@@ -366,7 +425,7 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 canvas.addEventListener("pointerup", event => {
-  if (!pointer || won) return;
+  if (!pointer || won || animation) return;
   const end = localPoint(event);
   const drag = [end.x-pointer.start.x, end.y-pointer.start.y];
   const distance = Math.hypot(...drag);
