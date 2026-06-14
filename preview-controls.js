@@ -33,9 +33,7 @@
       const len = Math.hypot(...candidate.screen);
       return { candidate, score: dot(drag, candidate.screen) / (length * len) };
     }).sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns);
-    let best = scored[0];
-    const shorter = scored.find(entry => entry.candidate.turns < best?.candidate.turns && entry.score >= best.score - .06);
-    if (shorter) best = shorter;
+    const best = scored[0];
     return best?.score >= .45 ? best.candidate : null;
   }
 
@@ -109,5 +107,5 @@
     else blocked();
   }, true);
 
-  document.querySelector("#hint").textContent = "Click a face to push. Drag a cube to preview a roll; release past 30% to commit.";
+  document.querySelector("#hint").textContent = "Click a face to push. Drag any visible face of a cube in the roll direction; release past 30% to commit.";
 })();
