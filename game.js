@@ -70,6 +70,8 @@ let shakeUntil = 0;
 let messageTimer = 0;
 let won = false;
 let animation = null;
+let cameraAnimation = null;
+let audio = null;
 
 function loadLevel(index) {
   levelIndex = index;
@@ -77,6 +79,7 @@ function loadLevel(index) {
   moves = 0;
   won = false;
   animation = null;
+  cameraAnimation = null;
   ui.resultDialog.close();
   localStorage.setItem("tumbleblock-level", index);
   updateUI();
@@ -100,8 +103,26 @@ function resize() {
   render();
 }
 
-function project(v, origin, scale) {
-  const view = VIEWS[viewIndex];
+function scaledUnit(v, length) {
+  const magnitude = Math.hypot(...v) || 1;
+  return v.map(n => n / magnitude * length);
+}
+
+function currentView(now = performance.now()) {
+  if (!cameraAnimation) return VIEWS[viewIndex];
+  const raw = Math.min(1, (now - cameraAnimation.started) / cameraAnimation.duration);
+  const t = raw * raw * (3 - 2 * raw);
+  const from = VIEWS[cameraAnimation.from], to = VIEWS[cameraAnimation.to];
+  const mix = key => from[key].map((n, i) => n + (to[key][i] - n) * t);
+  return {
+    right: scaledUnit(mix("right"), Math.sqrt(2)),
+    up: scaledUnit(mix("up"), Math.sqrt(6)),
+    depth: scaledUnit(mix("depth"), Math.sqrt(3)),
+  };
+}
+
+function project(v, origin, scale, now = performance.now()) {
+  const view = currentView(now);
   return {
     x: origin.x + dot(v, view.right) * scale / Math.sqrt(2),
     y: origin.y - dot(v, view.up) * scale / Math.sqrt(6),
@@ -109,7 +130,7 @@ function project(v, origin, scale) {
   };
 }
 
-function polygonForFace(pos, normal, origin, scale) {
+function polygonForFace(pos, normal, origin, scale, now) {
   const axis = normal.findIndex(n => n !== 0);
   const others = [0,1,2].filter(i => i !== axis);
   const points = [[-1,-1], [1,-1], [1,1], [-1,1]].map(pair => {
@@ -117,7 +138,7 @@ function polygonForFace(pos, normal, origin, scale) {
     v[axis] += normal[axis] > 0 ? 1 : 0;
     v[others[0]] += pair[0] > 0 ? 1 : 0;
     v[others[1]] += pair[1] > 0 ? 1 : 0;
-    return project(v, origin, scale);
+    return project(v, origin, scale, now);
   });
   const area = points.reduce((s, point, i) => {
     const next = points[(i + 1) % points.length];
@@ -136,8 +157,11 @@ function animatedCube(cube, cubeIndex, now, animate) {
   if (!animate || !animation || animation.index !== cubeIndex) return cube;
   const raw = Math.min(1, (now - animation.started) / animation.duration);
   const t = raw * raw * (3 - 2 * raw);
-  const pos = cube.pos.map((n, i) => n + (animation.destination[i] - n) * t);
-  if (animation.type === "roll") pos[2] += Math.sin(Math.PI * t) * .28 * animation.turns;
+  let pos = cube.pos.map((n, i) => n + (animation.destination[i] - n) * t);
+  if (animation.type === "roll") {
+    const center = add(animation.pivot, rotateVector(animation.from, animation.axis, t * animation.turns * Math.PI / 2));
+    pos = center.map(n => n - .5);
+  }
   return { ...cube, pos, visualRotation: animation.type === "roll" ? { axis: animation.axis, angle: t * animation.turns * Math.PI / 2 } : null };
 }
 
@@ -147,7 +171,7 @@ function rotateVector(v, axis, angle) {
   return v.map((n, i) => n * cos + c[i] * sin + axis[i] * dot(axis, v) * (1 - cos));
 }
 
-function polygonForAnimatedFace(cube, normal, origin, scale) {
+function polygonForAnimatedFace(cube, normal, origin, scale, now) {
   const axis = normal.findIndex(n => n !== 0);
   const others = [0,1,2].filter(i => i !== axis);
   const center = cube.pos.map(n => n + .5);
@@ -157,7 +181,7 @@ function polygonForAnimatedFace(cube, normal, origin, scale) {
     local[others[0]] = pair[0] * .5;
     local[others[1]] = pair[1] * .5;
     const rotated = cube.visualRotation ? rotateVector(local, cube.visualRotation.axis, cube.visualRotation.angle) : local;
-    return project(add(center, rotated), origin, scale);
+    return project(add(center, rotated), origin, scale, now);
   });
 }
 
@@ -171,12 +195,12 @@ function drawCluster(cluster, origin, scale, mode, interactive, now = performanc
       const visualNormal = visual.visualRotation
         ? rotateVector(normal, visual.visualRotation.axis, visual.visualRotation.angle)
         : normal;
-      if (visual.visualRotation && dot(visualNormal, VIEWS[viewIndex].depth) <= 0) return;
+      if (visual.visualRotation && dot(visualNormal, currentView(now).depth) <= 0) return;
       const poly = visual.visualRotation
-        ? polygonForAnimatedFace(visual, normal, origin, scale)
-        : polygonForFace(visual.pos, normal, origin, scale);
+        ? polygonForAnimatedFace(visual, normal, origin, scale, now)
+        : polygonForFace(visual.pos, normal, origin, scale, now);
       const center = add(visual.pos, visualNormal.map(n => n * .5));
-      faces.push({ cube, cubeIndex, normal, poly, depth: dot(center, VIEWS[viewIndex].depth) });
+      faces.push({ cube, cubeIndex, normal, poly, depth: dot(center, currentView(now).depth) });
     });
   });
   faces.sort((a, b) => a.depth - b.depth);
@@ -219,7 +243,7 @@ function render() {
   ctx.lineTo(w * .66, h * .39);
   ctx.stroke();
   ctx.setLineDash([]);
-  if (now < shakeUntil || animation) requestAnimationFrame(render);
+  if (now < shakeUntil || animation || cameraAnimation) requestAnimationFrame(render);
 }
 
 function pointInPoly(point, poly) {
@@ -262,7 +286,7 @@ function validDestination(index, destination) {
 function doSlide(face) {
   const destination = add(face.cube.pos, neg(face.normal));
   if (!validDestination(face.cubeIndex, destination)) return blocked();
-  animateMove({ index: face.cubeIndex, destination, type: "slide", duration: 180 });
+  animateMove({ index: face.cubeIndex, destination, type: "slide", duration: 180, sound: "slide" });
 }
 
 function rotateDirection(v, axis) {
@@ -283,13 +307,16 @@ function rollCandidates(index) {
       const destination = add(neighbor.pos, to);
       if (occupied.has(k(destination)) || !validDestination(index, destination)) continue;
       const axis = cross(from, to);
-      candidates.push({ destination, axis, turns: 1, screen: subScreen(destination, cube.pos) });
+      const pivot = neighbor.pos.map(n => n + .5);
+      candidates.push({ destination, axis, from, pivot, turns: 1, screen: subScreen(destination, cube.pos) });
 
       const opposite = add(neighbor.pos, neg(from));
       if (!occupied.has(k(opposite)) && validDestination(index, opposite)) {
         candidates.push({
           destination: opposite,
           axis,
+          from,
+          pivot,
           turns: 2,
           screen: subScreen(destination, cube.pos),
         });
@@ -308,7 +335,7 @@ function doRoll(index, drag) {
   const length = Math.hypot(...drag);
   if (length < 12) return false;
   const candidates = rollCandidates(index);
-  let best = null, bestScore = .15;
+  let best = null, bestScore = .42;
   for (const candidate of candidates) {
     if (candidate.turns === 2 && length < 64) continue;
     const len = Math.hypot(...candidate.screen);
@@ -334,10 +361,13 @@ function doRoll(index, drag) {
     index,
     destination: best.destination,
     axis: best.axis,
+    from: best.from,
+    pivot: best.pivot,
     turns: best.turns,
     orient: nextOrient,
     type: "roll",
     duration: best.turns === 2 ? 440 : 280,
+    sound: "roll",
   });
   return true;
 }
@@ -345,6 +375,7 @@ function doRoll(index, drag) {
 function animateMove(move) {
   if (animation) return false;
   animation = { ...move, started: performance.now() };
+  playSound(move.sound);
   render();
   setTimeout(() => {
     const cube = cubes[move.index];
@@ -354,6 +385,32 @@ function animateMove(move) {
     commitMove();
   }, move.duration);
   return true;
+}
+
+function playSound(type) {
+  audio ||= new AudioContext();
+  const now = audio.currentTime;
+  const gain = audio.createGain();
+  const oscillator = audio.createOscillator();
+  gain.connect(audio.destination);
+  oscillator.connect(gain);
+  gain.gain.setValueAtTime(.0001, now);
+  gain.gain.exponentialRampToValueAtTime(type === "slide" ? .09 : .07, now + .008);
+  gain.gain.exponentialRampToValueAtTime(.0001, now + (type === "slide" ? .11 : .28));
+  oscillator.type = type === "slide" ? "triangle" : "sine";
+  oscillator.frequency.setValueAtTime(type === "slide" ? 190 : 330, now);
+  oscillator.frequency.exponentialRampToValueAtTime(type === "slide" ? 145 : 105, now + (type === "slide" ? .11 : .28));
+  oscillator.start(now);
+  oscillator.stop(now + (type === "slide" ? .12 : .3));
+}
+
+function moveCamera(next) {
+  if (cameraAnimation || animation || next === viewIndex) return;
+  const from = viewIndex;
+  viewIndex = next;
+  cameraAnimation = { from, to: next, started: performance.now(), duration: 320 };
+  render();
+  setTimeout(() => { cameraAnimation = null; render(); }, 320);
 }
 
 function blocked() {
@@ -417,7 +474,7 @@ function localPoint(event) {
 }
 
 canvas.addEventListener("pointerdown", event => {
-  if (animation) return;
+  if (animation || cameraAnimation) return;
   canvas.setPointerCapture(event.pointerId);
   const point = localPoint(event);
   const face = [...hitFaces].reverse().find(f => pointInPoly(point, f.poly));
@@ -425,7 +482,7 @@ canvas.addEventListener("pointerdown", event => {
 });
 
 canvas.addEventListener("pointerup", event => {
-  if (!pointer || won || animation) return;
+  if (!pointer || won || animation || cameraAnimation) return;
   const end = localPoint(event);
   const drag = [end.x-pointer.start.x, end.y-pointer.start.y];
   const distance = Math.hypot(...drag);
@@ -433,9 +490,8 @@ canvas.addEventListener("pointerup", event => {
     if (distance < 10) doSlide(pointer.face);
     else doRoll(pointer.face.cubeIndex, drag);
   } else if (distance > 18) {
-    if (Math.abs(drag[0]) > Math.abs(drag[1])) viewIndex = (viewIndex + (drag[0] > 0 ? 1 : 5)) % 6;
-    else viewIndex = (viewIndex + (drag[1] > 0 ? 2 : 4)) % 6;
-    render();
+    if (Math.abs(drag[0]) > Math.abs(drag[1])) moveCamera((viewIndex + (drag[0] > 0 ? 1 : 5)) % 6);
+    else moveCamera((viewIndex + (drag[1] > 0 ? 2 : 4)) % 6);
   }
   pointer = null;
 });
