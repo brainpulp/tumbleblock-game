@@ -296,9 +296,23 @@ function validDestination(index, destination) {
   return cubes.some((c, i) => i !== index && DIRS.some(d => eq(add(destination, d), c.pos)));
 }
 
-function doSlide(face) {
-  const destination = add(face.cube.pos, neg(face.normal));
-  if (!validDestination(face.cubeIndex, destination)) return blocked();
+function doSlide(face, clickPoint) {
+  let destination = add(face.cube.pos, neg(face.normal));
+  if (!validDestination(face.cubeIndex, destination)) {
+    const workScale = Math.min(canvas.clientWidth * .17, canvas.clientHeight * .12, 74) / Math.max(1, bounds(cubes).span / 4);
+    const center = project(face.cube.pos.map(n => n + .5), { x: canvas.clientWidth / 2, y: canvas.clientHeight * .65 }, workScale);
+    const clickDirection = [clickPoint.x - center.x, clickPoint.y - center.y];
+    const length = Math.hypot(...clickDirection);
+    const legal = DIRS.map(direction => {
+      const candidate = add(face.cube.pos, direction);
+      const screen = subScreen(candidate, face.cube.pos);
+      const score = length ? dot(clickDirection, screen) / (length * Math.hypot(...screen)) : -1;
+      return { candidate, score };
+    }).filter(move => validDestination(face.cubeIndex, move.candidate))
+      .sort((a, b) => b.score - a.score);
+    if (!legal[0] || legal[0].score < .25) return blocked();
+    destination = legal[0].candidate;
+  }
   animateMove({ index: face.cubeIndex, destination, type: "slide", duration: 180, sound: "slide" });
 }
 
@@ -358,16 +372,14 @@ function doRoll(index, drag) {
   const scored = candidates.map(candidate => {
     const len = Math.hypot(...candidate.screen);
     const score = dot(drag, candidate.screen) / (length * len);
-    const firstScreen = subScreen(candidate.path[0].destination, cubes[index].pos);
-    const firstLen = Math.hypot(...firstScreen);
-    const firstScore = dot(drag, firstScreen) / (length * firstLen);
-    return { candidate, score: score + firstScore * .08 };
-  }).sort((a, b) => b.score - a.score);
+    return { candidate, score };
+  }).sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns);
   let bestEntry = scored[0];
-  const bestSingle = scored.find(entry => entry.candidate.turns === 1);
-  if (bestEntry?.candidate.turns === 2 && bestSingle && bestEntry.score < bestSingle.score + .14) {
-    bestEntry = bestSingle;
-  }
+  const shorterNearTie = scored.find(entry =>
+    entry.candidate.turns < bestEntry?.candidate.turns &&
+    entry.score >= bestEntry.score - .06
+  );
+  if (shorterNearTie) bestEntry = shorterNearTie;
   const best = bestEntry?.score >= .58 ? bestEntry.candidate : null;
   if (!best) return blocked();
   const cube = cubes[index];
@@ -435,14 +447,7 @@ function shortestAngle(from, to) {
   return ((to - from + Math.PI) % (Math.PI * 2)) - Math.PI;
 }
 
-function snapCamera() {
-  const quarter = Math.PI / 2;
-  const isoPitch = Math.atan(1 / Math.sqrt(2));
-  const targetYaw = Math.round((cameraYaw + Math.PI / 4) / quarter) * quarter - Math.PI / 4;
-  const pitchOptions = [-isoPitch, isoPitch];
-  const targetPitch = pitchOptions.reduce((best, value) =>
-    Math.abs(value - cameraPitch) < Math.abs(best - cameraPitch) ? value : best
-  );
+function snapCamera(targetYaw, targetPitch) {
   cameraSnap = {
     fromYaw: cameraYaw,
     fromPitch: cameraPitch,
@@ -519,7 +524,7 @@ canvas.addEventListener("pointerdown", event => {
   canvas.setPointerCapture(event.pointerId);
   const point = localPoint(event);
   const face = [...hitFaces].reverse().find(f => pointInPoly(point, f.poly));
-  pointer = { start: point, last: point, face, orbit: !face, time: performance.now() };
+  pointer = { start: point, last: point, face, orbit: !face, orbitDrag: [0, 0], time: performance.now() };
 });
 
 canvas.addEventListener("pointermove", event => {
@@ -527,33 +532,43 @@ canvas.addEventListener("pointermove", event => {
   const point = localPoint(event);
   const dx = point.x - pointer.last.x;
   const dy = point.y - pointer.last.y;
-  cameraYaw -= dx * .009;
-  cameraPitch = Math.max(-Math.PI * .48, Math.min(Math.PI * .48, cameraPitch + dy * .009));
   pointer.last = point;
-  render();
+  pointer.orbitDrag[0] += dx;
+  pointer.orbitDrag[1] += dy;
+  if (cameraSnap || Math.max(Math.abs(pointer.orbitDrag[0]), Math.abs(pointer.orbitDrag[1])) < 42) return;
+  const isoPitch = Math.atan(1 / Math.sqrt(2));
+  const quarter = Math.PI / 2;
+  if (Math.abs(pointer.orbitDrag[0]) >= Math.abs(pointer.orbitDrag[1])) {
+    snapCamera(cameraYaw - Math.sign(pointer.orbitDrag[0]) * quarter, cameraPitch);
+  } else {
+    snapCamera(cameraYaw, pointer.orbitDrag[1] > 0 ? isoPitch : -isoPitch);
+  }
+  pointer.orbitDrag = [0, 0];
 });
 
 canvas.addEventListener("pointerup", event => {
-  if (!pointer || won || animation || cameraSnap) return;
+  if (!pointer || won || animation) return;
   const end = localPoint(event);
   const drag = [end.x-pointer.start.x, end.y-pointer.start.y];
   const distance = Math.hypot(...drag);
   if (pointer.face) {
-    if (distance < 10) doSlide(pointer.face);
+    if (distance < 10) doSlide(pointer.face, end);
     else doRoll(pointer.face.cubeIndex, drag);
-  } else if (pointer.orbit) {
-    snapCamera();
   }
   pointer = null;
 });
 
 function buildLevelGrid() {
   ui.levelGrid.innerHTML = "";
+  ui.levelGrid.style.gridTemplateColumns = "repeat(2, 1fr)";
   levels.forEach((level, i) => {
     const button = document.createElement("button");
     button.textContent = i + 1;
     button.title = level.title;
-    button.disabled = i > unlocked;
+    button.textContent = `${i + 1} · ${level.title}`;
+    button.style.aspectRatio = "auto";
+    button.style.minHeight = "44px";
+    button.style.padding = "6px";
     button.classList.toggle("current", i === levelIndex);
     button.onclick = () => { ui.levelDialog.close(); loadLevel(i); };
     ui.levelGrid.append(button);
