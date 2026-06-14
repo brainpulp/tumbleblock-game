@@ -270,7 +270,7 @@ function pointInPoly(point, poly) {
 
 function topFree(cubeIndex) {
   const here = cubes[cubeIndex].pos;
-  return !cubes.some((c, i) => i !== cubeIndex && c.pos[2] > here[2] && c.pos[0] === here[0] && c.pos[1] === here[1]);
+  return !cubes.some((c, i) => i !== cubeIndex && eq(c.pos, add(here, [0, 0, 1])));
 }
 
 function connectedWithout(index) {
@@ -355,15 +355,20 @@ function doRoll(index, drag) {
   const length = Math.hypot(...drag);
   if (length < 12) return false;
   const candidates = rollCandidates(index);
-  let best = null, bestScore = .58;
-  for (const candidate of candidates) {
+  const scored = candidates.map(candidate => {
     const len = Math.hypot(...candidate.screen);
     const score = dot(drag, candidate.screen) / (length * len);
-    if (score > bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
+    const firstScreen = subScreen(candidate.path[0].destination, cubes[index].pos);
+    const firstLen = Math.hypot(...firstScreen);
+    const firstScore = dot(drag, firstScreen) / (length * firstLen);
+    return { candidate, score: score + firstScore * .08 };
+  }).sort((a, b) => b.score - a.score);
+  let bestEntry = scored[0];
+  const bestSingle = scored.find(entry => entry.candidate.turns === 1);
+  if (bestEntry?.candidate.turns === 2 && bestSingle && bestEntry.score < bestSingle.score + .14) {
+    bestEntry = bestSingle;
   }
+  const best = bestEntry?.score >= .58 ? bestEntry.candidate : null;
   if (!best) return blocked();
   const cube = cubes[index];
   let nextOrient = [...cube.orient];
