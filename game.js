@@ -73,6 +73,7 @@ let animation = null;
 let audio = null;
 let cameraYaw = -Math.PI / 4;
 let cameraPitch = Math.atan(1 / Math.sqrt(2));
+let cameraSnap = null;
 
 function loadLevel(index) {
   levelIndex = index;
@@ -103,7 +104,13 @@ function resize() {
   render();
 }
 
-function currentView() {
+function currentView(now = performance.now()) {
+  if (cameraSnap) {
+    const raw = Math.min(1, (now - cameraSnap.started) / cameraSnap.duration);
+    const t = raw * raw * (3 - 2 * raw);
+    cameraYaw = cameraSnap.fromYaw + cameraSnap.yawDelta * t;
+    cameraPitch = cameraSnap.fromPitch + (cameraSnap.toPitch - cameraSnap.fromPitch) * t;
+  }
   const cy = Math.cos(cameraYaw), sy = Math.sin(cameraYaw);
   const cp = Math.cos(cameraPitch), sp = Math.sin(cameraPitch);
   return {
@@ -249,7 +256,7 @@ function render() {
   ctx.lineTo(w * .66, h * .39);
   ctx.stroke();
   ctx.setLineDash([]);
-  if (now < shakeUntil || animation) requestAnimationFrame(render);
+  if (now < shakeUntil || animation || cameraSnap) requestAnimationFrame(render);
 }
 
 function pointInPoly(point, poly) {
@@ -352,10 +359,9 @@ function doRoll(index, drag) {
   for (const candidate of candidates) {
     const len = Math.hypot(...candidate.screen);
     const score = dot(drag, candidate.screen) / (length * len);
-    const minimumTurnBonus = candidate.turns === 1 ? .04 : 0;
-    if (score + minimumTurnBonus > bestScore) {
+    if (score > bestScore) {
       best = candidate;
-      bestScore = score + minimumTurnBonus;
+      bestScore = score;
     }
   }
   if (!best) return blocked();
@@ -420,6 +426,35 @@ function blocked() {
   return false;
 }
 
+function shortestAngle(from, to) {
+  return ((to - from + Math.PI) % (Math.PI * 2)) - Math.PI;
+}
+
+function snapCamera() {
+  const quarter = Math.PI / 2;
+  const isoPitch = Math.atan(1 / Math.sqrt(2));
+  const targetYaw = Math.round((cameraYaw + Math.PI / 4) / quarter) * quarter - Math.PI / 4;
+  const pitchOptions = [-isoPitch, isoPitch];
+  const targetPitch = pitchOptions.reduce((best, value) =>
+    Math.abs(value - cameraPitch) < Math.abs(best - cameraPitch) ? value : best
+  );
+  cameraSnap = {
+    fromYaw: cameraYaw,
+    fromPitch: cameraPitch,
+    yawDelta: shortestAngle(cameraYaw, targetYaw),
+    toPitch: targetPitch,
+    started: performance.now(),
+    duration: 260,
+  };
+  render();
+  setTimeout(() => {
+    cameraYaw = targetYaw;
+    cameraPitch = targetPitch;
+    cameraSnap = null;
+    render();
+  }, cameraSnap.duration);
+}
+
 function normalizeCluster(cluster, includeOrientation) {
   const mins = [0,1,2].map(axis => Math.min(...cluster.map(c => c.pos[axis])));
   return cluster.map(c => ({
@@ -475,7 +510,7 @@ function localPoint(event) {
 }
 
 canvas.addEventListener("pointerdown", event => {
-  if (animation) return;
+  if (animation || cameraSnap) return;
   canvas.setPointerCapture(event.pointerId);
   const point = localPoint(event);
   const face = [...hitFaces].reverse().find(f => pointInPoly(point, f.poly));
@@ -487,20 +522,22 @@ canvas.addEventListener("pointermove", event => {
   const point = localPoint(event);
   const dx = point.x - pointer.last.x;
   const dy = point.y - pointer.last.y;
-  cameraYaw += dx * .009;
-  cameraPitch = Math.max(-Math.PI * .48, Math.min(Math.PI * .48, cameraPitch - dy * .009));
+  cameraYaw -= dx * .009;
+  cameraPitch = Math.max(-Math.PI * .48, Math.min(Math.PI * .48, cameraPitch + dy * .009));
   pointer.last = point;
   render();
 });
 
 canvas.addEventListener("pointerup", event => {
-  if (!pointer || won || animation) return;
+  if (!pointer || won || animation || cameraSnap) return;
   const end = localPoint(event);
   const drag = [end.x-pointer.start.x, end.y-pointer.start.y];
   const distance = Math.hypot(...drag);
   if (pointer.face) {
     if (distance < 10) doSlide(pointer.face);
     else doRoll(pointer.face.cubeIndex, drag);
+  } else if (pointer.orbit) {
+    snapCamera();
   }
   pointer = null;
 });
