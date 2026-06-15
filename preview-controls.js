@@ -26,12 +26,18 @@
     animateMove({ index: face.cubeIndex, destination, type: "slide", duration: 180, sound: "slide" });
   };
 
+  function pickFace(point) {
+    return hitFaces
+      .filter(face => pointInPoly(point, face.poly))
+      .sort((a, b) => b.depth - a.depth)[0] || null;
+  }
+
   function chooseRoll(index, drag) {
     const length = Math.hypot(...drag);
     if (length < 10) return null;
     const scored = rollCandidates(index).map(candidate => {
       const len = Math.hypot(...candidate.screen);
-      return { candidate, score: dot(drag, candidate.screen) / (length * len) };
+      return { candidate, score: len ? dot(drag, candidate.screen) / (length * len) : -1 };
     }).sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns);
     const best = scored[0];
     return best?.score >= .45 ? best.candidate : null;
@@ -68,15 +74,17 @@
   canvas.addEventListener("pointerdown", event => {
     if (animation || cameraSnap) return;
     const point = localPoint(event);
-    const face = [...hitFaces].reverse().find(item => pointInPoly(point, item.poly));
+    const face = pickFace(point);
     if (!face) return;
+    event.preventDefault();
     event.stopImmediatePropagation();
     canvas.setPointerCapture(event.pointerId);
-    previewPointer = { start: point, face };
+    previewPointer = { pointerId: event.pointerId, start: point, face };
   }, true);
 
   canvas.addEventListener("pointermove", event => {
-    if (!previewPointer || animation && !animation.preview) return;
+    if (!previewPointer || event.pointerId !== previewPointer.pointerId || animation && !animation.preview) return;
+    event.preventDefault();
     event.stopImmediatePropagation();
     const point = localPoint(event);
     const drag = [point.x - previewPointer.start.x, point.y - previewPointer.start.y];
@@ -93,7 +101,8 @@
   }, true);
 
   canvas.addEventListener("pointerup", event => {
-    if (!previewPointer) return;
+    if (!previewPointer || event.pointerId !== previewPointer.pointerId) return;
+    event.preventDefault();
     event.stopImmediatePropagation();
     const point = localPoint(event);
     const distance = Math.hypot(point.x - previewPointer.start.x, point.y - previewPointer.start.y);
@@ -105,6 +114,13 @@
       else { animation = null; render(); }
     } else if (distance < 10) doSlide(face);
     else blocked();
+  }, true);
+
+  canvas.addEventListener("pointercancel", event => {
+    if (!previewPointer || event.pointerId !== previewPointer.pointerId) return;
+    previewPointer = null;
+    animation = null;
+    render();
   }, true);
 
   document.querySelector("#hint").textContent = "Click a face to push. Drag any visible face of a cube in the roll direction; release past 30% to commit.";
