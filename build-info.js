@@ -1,4 +1,4 @@
 window.TUMBLEBLOCK_BUILD = {
-  deployedAt: null,
-  commit: "local",
+  deployedAt: "2026-06-15T23:45:00Z",
+  commit: "isometric-motion-fix",
 };
