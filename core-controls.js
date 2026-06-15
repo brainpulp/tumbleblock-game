@@ -10,10 +10,7 @@
       const position = queue.shift();
       for (const direction of DIRS) {
         const next = add(position, direction);
-        if (occupied.has(k(next)) && !seen.has(k(next))) {
-          seen.add(k(next));
-          queue.push(next);
-        }
+        if (occupied.has(k(next)) && !seen.has(k(next))) { seen.add(k(next)); queue.push(next); }
       }
     }
     return seen.size === positions.length;
@@ -27,9 +24,7 @@
 
   let projectionPivot = [0, 0, 0];
   const baseProject = project;
-  project = function(vector, origin, scale) {
-    return baseProject(sub(vector, projectionPivot), origin, scale);
-  };
+  project = function(vector, origin, scale) { return baseProject(sub(vector, projectionPivot), origin, scale); };
 
   drawCluster = function(cluster, origin, scale, mode, interactive, now = performance.now(), animate = false) {
     projectionPivot = [0, 1, 2].map(axis => cluster.reduce((sum, cube) => sum + cube.pos[axis] + .5, 0) / cluster.length);
@@ -49,25 +44,44 @@
     });
     faces.sort((a, b) => a.depth - b.depth);
     for (const face of faces) {
-      ctx.beginPath();
-      face.poly.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
-      ctx.closePath();
-      ctx.fillStyle = faceColor(face.cube, face.normal, mode);
-      ctx.fill();
-      ctx.strokeStyle = "#202020";
-      ctx.lineWidth = Math.max(1.25, scale / 34);
-      ctx.lineJoin = "round";
-      ctx.stroke();
+      ctx.beginPath(); face.poly.forEach((point, i) => i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)); ctx.closePath();
+      ctx.fillStyle = faceColor(face.cube, face.normal, mode); ctx.fill();
+      ctx.strokeStyle = "#202020"; ctx.lineWidth = Math.max(1.25, scale / 34); ctx.lineJoin = "round"; ctx.stroke();
       if (interactive) hitFaces.push(face);
     }
+  };
+
+  rollCandidates = function(index) {
+    const cube = cubes[index];
+    const occupied = new Set(cubes.filter((_, i) => i !== index).map(c => k(c.pos)));
+    const candidates = [];
+    cubes.forEach((neighbor, neighborIndex) => {
+      if (neighborIndex === index) return;
+      const from = sub(cube.pos, neighbor.pos);
+      if (!DIRS.some(direction => eq(direction, from))) return;
+      for (const to of DIRS) {
+        if (dot(from, to) !== 0) continue;
+        const destination = add(neighbor.pos, to);
+        if (occupied.has(k(destination)) || !validDestination(index, destination)) continue;
+        const turns = cube.pos[2] === destination[2] ? 1 : 2;
+        const axis = cross(from, to);
+        const neighborCenter = neighbor.pos.map(n => n + .5);
+        const pivot = neighborCenter.map((n, i) => n + (from[i] + to[i]) * .5);
+        const sourceCenter = cube.pos.map(n => n + .5);
+        candidates.push({ destination, turns, path: [{ destination, axis, pivot, relative: sub(sourceCenter, pivot), turns }], screen: subScreen(destination, cube.pos) });
+      }
+    });
+    return candidates;
   };
 
   function orientationAfter(cube, candidate) {
     let orientation = [...cube.orient];
     for (const step of candidate.path) {
-      const turned = [...orientation];
-      DIRS.forEach((worldDirection, oldWorldIndex) => { turned[dirIndex(rotateDirection(worldDirection, step.axis))] = orientation[oldWorldIndex]; });
-      orientation = turned;
+      for (let turn = 0; turn < step.turns; turn++) {
+        const turned = [...orientation];
+        DIRS.forEach((worldDirection, oldWorldIndex) => { turned[dirIndex(rotateDirection(worldDirection, step.axis))] = orientation[oldWorldIndex]; });
+        orientation = turned;
+      }
     }
     return orientation;
   }
@@ -91,14 +105,12 @@
     const elapsed = Math.min(1, (now - animation.started) / animation.duration);
     const raw = animation.preview ? animation.progress : animation.fromProgress + (1 - animation.fromProgress) * elapsed;
     const t = raw * raw * (3 - 2 * raw);
-    const scaled = t * animation.path.length;
-    const pathIndex = Math.min(animation.path.length - 1, Math.floor(scaled));
-    const stepT = Math.min(1, scaled - pathIndex);
-    const step = animation.path[pathIndex];
-    const center = add(step.pivot, rotateVector(step.relative, step.axis, stepT * Math.PI / 2));
-    const visualRotations = animation.path.slice(0, pathIndex).map(pathStep => ({ axis: pathStep.axis, angle: Math.PI / 2 }));
-    visualRotations.push({ axis: step.axis, angle: stepT * Math.PI / 2 });
-    return { ...cube, pos: center.map(n => n - .5), visualRotations };
+    const step = animation.path[0];
+    const angle = t * step.turns * Math.PI / 2;
+    const startCenter = cube.pos.map(n => n + .5);
+    const destinationCenter = animation.destination.map(n => n + .5);
+    const center = step.turns === 1 ? startCenter.map((n, i) => n + (destinationCenter[i] - n) * t) : add(step.pivot, rotateVector(step.relative, step.axis, angle));
+    return { ...cube, pos: center.map(n => n - .5), visualRotations: [{ axis: step.axis, angle }] };
   };
 
   function chooseRoll(index, drag) {
@@ -110,37 +122,24 @@
   let active = null;
   canvas.addEventListener("pointerdown", event => {
     if (animation || cameraSnap) return;
-    const point = localPoint(event);
-    const face = [...hitFaces].reverse().find(item => pointInPoly(point, item.poly));
-    if (!face) return;
-    event.stopImmediatePropagation();
-    canvas.setPointerCapture(event.pointerId);
-    active = { pointerId: event.pointerId, start: point, face };
+    const point = localPoint(event); const face = [...hitFaces].reverse().find(item => pointInPoly(point, item.poly)); if (!face) return;
+    event.stopImmediatePropagation(); canvas.setPointerCapture(event.pointerId); active = { pointerId: event.pointerId, start: point, face };
   }, true);
 
   canvas.addEventListener("pointermove", event => {
     if (!active || event.pointerId !== active.pointerId || animation && !animation.preview) return;
     event.stopImmediatePropagation();
-    const point = localPoint(event);
-    const drag = [point.x - active.start.x, point.y - active.start.y];
-    const candidate = chooseRoll(active.face.cubeIndex, drag);
+    const point = localPoint(event); const drag = [point.x - active.start.x, point.y - active.start.y]; const candidate = chooseRoll(active.face.cubeIndex, drag);
     if (!candidate) { animation = null; render(); return; }
-    const length = Math.hypot(...candidate.screen);
-    const progress = Math.max(0, Math.min(1, dot(drag, candidate.screen) / (length * length)));
-    animation = { index: active.face.cubeIndex, destination: candidate.destination, path: candidate.path, turns: candidate.turns, type: "roll", preview: true, progress, started: performance.now(), duration: 1 };
-    render();
+    const length = Math.hypot(...candidate.screen); const progress = Math.max(0, Math.min(1, dot(drag, candidate.screen) / (length * length)));
+    animation = { index: active.face.cubeIndex, destination: candidate.destination, path: candidate.path, turns: candidate.turns, type: "roll", preview: true, progress, started: performance.now(), duration: 1 }; render();
   }, true);
 
   canvas.addEventListener("pointerup", event => {
     if (!active || event.pointerId !== active.pointerId) return;
-    event.stopImmediatePropagation();
-    const point = localPoint(event);
-    const distance = Math.hypot(point.x - active.start.x, point.y - active.start.y);
-    const face = active.face;
-    active = null;
+    event.stopImmediatePropagation(); const point = localPoint(event); const distance = Math.hypot(point.x - active.start.x, point.y - active.start.y); const face = active.face; active = null;
     if (animation?.preview) { const preview = animation; if (preview.progress >= .3) commitRoll(face.cubeIndex, preview, preview.progress); else { animation = null; render(); } }
-    else if (distance < 10) doSlide(face);
-    else blocked();
+    else if (distance < 10) doSlide(face); else blocked();
   }, true);
 
   canvas.addEventListener("pointercancel", () => { active = null; animation = null; render(); }, true);
