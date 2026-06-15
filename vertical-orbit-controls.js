@@ -9,11 +9,11 @@
     if (face) return;
     event.stopImmediatePropagation();
     canvas.setPointerCapture(event.pointerId);
-    orbitPointer = { pointerId: event.pointerId, last: point, drag: [0, 0] };
+    orbitPointer = { pointerId: event.pointerId, last: point, drag: [0, 0], turned: false };
   }, true);
 
   canvas.addEventListener("pointermove", event => {
-    if (!orbitPointer || event.pointerId !== orbitPointer.pointerId || animation) return;
+    if (!orbitPointer || event.pointerId !== orbitPointer.pointerId || animation || orbitPointer.turned) return;
     event.stopImmediatePropagation();
     const point = localPoint(event);
     orbitPointer.drag[0] += point.x - orbitPointer.last.x;
@@ -27,6 +27,7 @@
     } else {
       snapCamera(cameraYaw, cameraPitch + Math.sign(orbitPointer.drag[1]) * quarter);
     }
+    orbitPointer.turned = true;
     orbitPointer.drag = [0, 0];
   }, true);
 
