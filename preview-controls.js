@@ -27,9 +27,7 @@
   };
 
   function pickFace(point) {
-    return hitFaces
-      .filter(face => pointInPoly(point, face.poly))
-      .sort((a, b) => b.depth - a.depth)[0] || null;
+    return [...hitFaces].reverse().find(face => pointInPoly(point, face.poly)) || null;
   }
 
   function chooseRoll(index, drag) {
