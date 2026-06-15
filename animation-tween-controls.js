@@ -28,8 +28,9 @@
       const center = startCenter.map((value, index) => value + (destinationCenter[index] - value) * progress);
       return { ...cube, pos: center.map(value => value - .5) };
     }
-    const angle = Math.PI * progress;
-    const center = add(step.pivot, rotateVector(step.relative, step.axis, angle));
+    const centerAngle = Math.PI * progress;
+    const angle = step.turns * Math.PI / 2 * progress;
+    const center = add(step.pivot, rotateVector(step.relative, step.axis, centerAngle));
     return { ...cube, pos: center.map(value => value - .5), visualRotations: [{ axis: step.axis, angle }], rigidTransform: { center, axis: step.axis, angle } };
   };
 })();
