@@ -15,7 +15,7 @@
     if (cameraSnap || Math.max(Math.abs(orbitPointer.drag[0]), Math.abs(orbitPointer.drag[1])) < 42) return;
     const quarter = Math.PI / 2;
     if (Math.abs(orbitPointer.drag[0]) >= Math.abs(orbitPointer.drag[1])) snapCamera(cameraYaw - Math.sign(orbitPointer.drag[0]) * quarter, cameraPitch);
-    else snapCamera(cameraYaw, cameraPitch - Math.sign(orbitPointer.drag[1]) * quarter);
+    else snapCamera(cameraYaw, cameraPitch + Math.sign(orbitPointer.drag[1]) * quarter);
     orbitPointer.drag = [0, 0];
   }, true);
   const finishOrbit = event => { if (!orbitPointer || event.pointerId !== orbitPointer.pointerId) return; event.stopImmediatePropagation(); orbitPointer = null; };
