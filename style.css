@@ -61,6 +61,31 @@ canvas:active { cursor: grabbing; }
   letter-spacing: 2px;
   pointer-events: none;
 }
+.move-display {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 39%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 12px;
+  background: var(--paper);
+  pointer-events: none;
+}
+.move-display span {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.move-display strong {
+  font-size: clamp(22px, 4vw, 34px);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.move-display b { color: var(--muted); font-size: 12px; }
 
 .message {
   position: absolute;
