@@ -1,5 +1,9 @@
 (() => {
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
+  const quarter = Math.PI / 2;
+  const baseYaw = -Math.PI / 4;
+  const basePitch = Math.atan(1 / Math.sqrt(2));
+  const pixelsPerQuarter = 150;
   let orbitPointer = null;
 
   canvas.addEventListener("pointerdown", event => {
@@ -9,32 +13,31 @@
     if (face) return;
     event.stopImmediatePropagation();
     canvas.setPointerCapture(event.pointerId);
-    orbitPointer = { pointerId: event.pointerId, last: point, drag: [0, 0], turned: false };
+    orbitPointer = { pointerId: event.pointerId, start: point, startYaw: cameraYaw, startPitch: cameraPitch, moved: false };
   }, true);
 
   canvas.addEventListener("pointermove", event => {
-    if (!orbitPointer || event.pointerId !== orbitPointer.pointerId || animation || orbitPointer.turned) return;
+    if (!orbitPointer || event.pointerId !== orbitPointer.pointerId || animation) return;
     event.stopImmediatePropagation();
     const point = localPoint(event);
-    orbitPointer.drag[0] += point.x - orbitPointer.last.x;
-    orbitPointer.drag[1] += point.y - orbitPointer.last.y;
-    orbitPointer.last = point;
-    if (cameraSnap || Math.max(Math.abs(orbitPointer.drag[0]), Math.abs(orbitPointer.drag[1])) < 42) return;
-
-    const quarter = Math.PI / 2;
-    if (Math.abs(orbitPointer.drag[0]) >= Math.abs(orbitPointer.drag[1])) {
-      snapCamera(cameraYaw - Math.sign(orbitPointer.drag[0]) * quarter, cameraPitch);
-    } else {
-      snapCamera(cameraYaw, cameraPitch + Math.sign(orbitPointer.drag[1]) * quarter);
-    }
-    orbitPointer.turned = true;
-    orbitPointer.drag = [0, 0];
+    const dx = point.x - orbitPointer.start.x;
+    const dy = point.y - orbitPointer.start.y;
+    if (Math.hypot(dx, dy) < 3) return;
+    orbitPointer.moved = true;
+    cameraYaw = orbitPointer.startYaw - dx / pixelsPerQuarter * quarter;
+    cameraPitch = orbitPointer.startPitch + dy / pixelsPerQuarter * quarter;
+    render();
   }, true);
 
   const finishOrbit = event => {
     if (!orbitPointer || event.pointerId !== orbitPointer.pointerId) return;
     event.stopImmediatePropagation();
+    const moved = orbitPointer.moved;
     orbitPointer = null;
+    if (!moved) return;
+    const targetYaw = baseYaw + Math.round((cameraYaw - baseYaw) / quarter) * quarter;
+    const targetPitch = basePitch + Math.round((cameraPitch - basePitch) / quarter) * quarter;
+    snapCamera(targetYaw, targetPitch);
   };
   canvas.addEventListener("pointerup", finishOrbit, true);
   canvas.addEventListener("pointercancel", finishOrbit, true);
