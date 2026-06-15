@@ -1,44 +1,8 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f7f4ed">
-  <title>Tumbleblock</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <main>
-    <header>
-      <div>
-        <p class="eyebrow">Tumbleblock</p>
-        <h1 id="level-title">First Steps</h1>
-        <p id="build-stamp" style="color:#8e8a80;font:9px system-ui,sans-serif;letter-spacing:.5px;margin-top:3px">Local build</p>
-      </div>
-      <div class="stats"><span>Level <strong id="level-number">1</strong></span></div>
-    </header>
-    <section class="board" aria-label="Tumbleblock puzzle">
-      <div class="target-label">MATCH THIS</div>
-      <canvas id="game" aria-label="Target configuration above and playable cubes below"></canvas>
-      <div class="move-display"><span>Moves</span><strong id="moves">0</strong><b id="limit"></b></div>
-      <div id="message" class="message" aria-live="polite"></div>
-    </section>
-    <footer>
-      <button id="restart">Restart</button>
-      <p id="hint">Click a face to slide. Drag a cube toward its destination to roll. Drag the background to orbit.</p>
-      <button id="levels">Levels</button>
-    </footer>
-  </main>
-  <dialog id="level-dialog"><div class="dialog-head"><h2>Levels</h2><button id="close-levels" aria-label="Close">x</button></div><div id="level-grid" class="level-grid"></div></dialog>
-  <dialog id="result-dialog"><p class="eyebrow">Configuration matched</p><h2 id="result-title">Level complete</h2><p id="result-copy"></p><button id="next-level">Next level</button></dialog>
-  <script src="build-info.js"></script>
-  <script>
-    const build = window.TUMBLEBLOCK_BUILD || {};
-    document.querySelector("#build-stamp").textContent = build.deployedAt
-      ? `Deployed ${new Date(build.deployedAt).toLocaleString()} | ${build.commit || "unknown"}`
-      : `Local build | ${build.commit || "uncommitted"}`;
-  </script>
-  <script src="game.js"></script>
-  <script src="core-controls.js"></script>
-</body>
-</html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="theme-color" content="#f7f4ed"><title>Tumbleblock</title><link rel="stylesheet" href="style.css"></head>
+<body><main><header><div><p class="eyebrow">Tumbleblock</p><h1 id="level-title">First Steps</h1><p id="build-stamp" style="color:#8e8a80;font:9px system-ui,sans-serif;letter-spacing:.5px;margin-top:3px">Local build</p></div><div class="stats"><span>Level <strong id="level-number">1</strong></span></div></header>
+<section class="board" aria-label="Tumbleblock puzzle"><div class="target-label">MATCH THIS</div><canvas id="game" aria-label="Target configuration above and playable cubes below"></canvas><div class="move-display"><span>Moves</span><strong id="moves">0</strong><b id="limit"></b></div><div id="message" class="message" aria-live="polite"></div></section>
+<footer><button id="restart">Restart</button><p id="hint">Click a face to slide. Drag a cube toward its destination to roll. Drag the background to orbit.</p><button id="levels">Levels</button></footer></main>
+<dialog id="level-dialog"><div class="dialog-head"><h2>Levels</h2><button id="close-levels" aria-label="Close">x</button></div><div id="level-grid" class="level-grid"></div></dialog><dialog id="result-dialog"><p class="eyebrow">Configuration matched</p><h2 id="result-title">Level complete</h2><p id="result-copy"></p><button id="next-level">Next level</button></dialog>
+<script src="build-info.js"></script><script>const build=window.TUMBLEBLOCK_BUILD||{};document.querySelector("#build-stamp").textContent=build.deployedAt?`Deployed ${new Date(build.deployedAt).toLocaleString()} | ${build.commit||"unknown"}`:`Local build | ${build.commit||"uncommitted"}`;</script>
+<script src="game.js"></script><script src="core-controls.js"></script><script src="over-roll-controls.js"></script><script src="vertical-orbit-controls.js"></script></body></html>
