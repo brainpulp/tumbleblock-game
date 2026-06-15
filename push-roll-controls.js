@@ -1,6 +1,18 @@
 (() => {
   const originalSlide = doSlide;
 
+  function orientationAfter(cube, candidate) {
+    let orientation = [...cube.orient];
+    for (const step of candidate.path) {
+      const turned = [...orientation];
+      DIRS.forEach((worldDirection, oldWorldIndex) => {
+        turned[dirIndex(rotateDirection(worldDirection, step.axis))] = orientation[oldWorldIndex];
+      });
+      orientation = turned;
+    }
+    return orientation;
+  }
+
   doSlide = function(face) {
     const pushDirection = neg(face.normal);
     const slideDestination = add(face.cube.pos, pushDirection);
@@ -15,6 +27,15 @@
       .sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns)[0]?.candidate;
 
     if (!roll) return blocked();
-    return commitRoll(face.cubeIndex, roll);
+    return animateMove({
+      index: face.cubeIndex,
+      destination: roll.destination,
+      path: roll.path,
+      turns: roll.turns,
+      orient: orientationAfter(cubes[face.cubeIndex], roll),
+      type: "roll",
+      duration: roll.turns === 2 ? 440 : 280,
+      sound: "roll",
+    });
   };
 })();
