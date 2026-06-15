@@ -93,7 +93,7 @@
       return;
     }
     const directionLength = Math.hypot(...candidate.screen);
-    const progress = Math.max(0, Math.min(1, dot(drag, candidate.screen) / directionLength / (72 * candidate.turns)));
+    const progress = Math.max(0, Math.min(1, dot(drag, candidate.screen) / (directionLength * directionLength)));
     animation = { index: previewPointer.face.cubeIndex, destination: candidate.destination, path: candidate.path, turns: candidate.turns, type: "roll", preview: true, progress, started: performance.now(), duration: 1 };
     render();
   }, true);
@@ -121,5 +121,5 @@
     render();
   }, true);
 
-  document.querySelector("#hint").textContent = "Click a face to push. Drag any visible face of a cube in the roll direction; release past 30% to commit.";
+  document.querySelector("#hint").textContent = "Click a face to push. Drag any visible face through the full roll; release past 30% to commit.";
 })();
