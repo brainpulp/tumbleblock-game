@@ -1,58 +1,6 @@
 (() => {
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
   let orbitPointer = null;
-  let viewBasis = currentView();
-  let viewSnap = null;
-
-  const rotateAround = (vector, axis, angle) => {
-    const cosine = Math.cos(angle);
-    const sine = Math.sin(angle);
-    const crossed = cross(axis, vector);
-    const aligned = dot(axis, vector) * (1 - cosine);
-    return vector.map((value, index) =>
-      value * cosine + crossed[index] * sine + axis[index] * aligned
-    );
-  };
-
-  const normalized = vector => {
-    const length = Math.hypot(...vector);
-    return vector.map(value => value / length);
-  };
-
-  currentView = function(now = performance.now()) {
-    if (!viewSnap) return viewBasis;
-    const raw = Math.min(1, (now - viewSnap.started) / viewSnap.duration);
-    const t = raw * raw * (3 - 2 * raw);
-    const angle = viewSnap.angle * t;
-    return {
-      right: rotateAround(viewSnap.from.right, viewSnap.axis, angle),
-      up: rotateAround(viewSnap.from.up, viewSnap.axis, angle),
-      depth: rotateAround(viewSnap.from.depth, viewSnap.axis, angle),
-    };
-  };
-
-  const snapScreenCamera = (axis, angle) => {
-    viewSnap = {
-      from: viewBasis,
-      axis: normalized(axis),
-      angle,
-      started: performance.now(),
-      duration: 260,
-    };
-    cameraSnap = viewSnap;
-    playSound("camera");
-    render();
-    setTimeout(() => {
-      viewBasis = {
-        right: normalized(rotateAround(viewSnap.from.right, viewSnap.axis, viewSnap.angle)),
-        up: normalized(rotateAround(viewSnap.from.up, viewSnap.axis, viewSnap.angle)),
-        depth: normalized(rotateAround(viewSnap.from.depth, viewSnap.axis, viewSnap.angle)),
-      };
-      viewSnap = null;
-      cameraSnap = null;
-      render();
-    }, viewSnap.duration);
-  };
 
   canvas.addEventListener("pointerdown", event => {
     if (animation || cameraSnap) return;
@@ -75,9 +23,9 @@
 
     const quarter = Math.PI / 2;
     if (Math.abs(orbitPointer.drag[0]) >= Math.abs(orbitPointer.drag[1])) {
-      snapScreenCamera(currentView().up, Math.sign(orbitPointer.drag[0]) * quarter);
+      snapCamera(cameraYaw - Math.sign(orbitPointer.drag[0]) * quarter, cameraPitch);
     } else {
-      snapScreenCamera(currentView().right, -Math.sign(orbitPointer.drag[1]) * quarter);
+      snapCamera(cameraYaw, cameraPitch + Math.sign(orbitPointer.drag[1]) * quarter);
     }
     orbitPointer.drag = [0, 0];
   }, true);
