@@ -23,10 +23,13 @@
     const progress = raw * raw * (3 - 2 * raw);
     const startCenter = cube.pos.map(value => value + .5);
     const destinationCenter = animation.destination.map(value => value + .5);
-    const center = startCenter.map((value, index) => value + (destinationCenter[index] - value) * progress);
     const step = animation.path?.[0];
-    if (!step) return { ...cube, pos: center.map(value => value - .5) };
-    const angle = step.turns * Math.PI / 2 * progress;
+    if (!step) {
+      const center = startCenter.map((value, index) => value + (destinationCenter[index] - value) * progress);
+      return { ...cube, pos: center.map(value => value - .5) };
+    }
+    const angle = Math.PI * progress;
+    const center = add(step.pivot, rotateVector(step.relative, step.axis, angle));
     return { ...cube, pos: center.map(value => value - .5), visualRotations: [{ axis: step.axis, angle }], rigidTransform: { center, axis: step.axis, angle } };
   };
 })();
