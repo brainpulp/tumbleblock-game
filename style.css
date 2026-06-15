@@ -74,18 +74,12 @@ canvas:active { cursor: grabbing; }
   background: var(--paper);
   pointer-events: none;
 }
-.move-display span {
-  color: var(--muted);
-  font-size: 10px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
 .move-display strong {
-  font-size: clamp(22px, 4vw, 34px);
+  font-size: clamp(44px, 8vw, 68px);
   line-height: 1;
-  letter-spacing: -1px;
+  letter-spacing: -2px;
 }
-.move-display b { color: var(--muted); font-size: 12px; }
+.move-display b { color: var(--muted); font-size: 24px; }
 
 .message {
   position: absolute;
@@ -127,8 +121,10 @@ dialog {
 dialog::backdrop { background: rgb(25 25 25 / .45); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .dialog-head button { border: 0; font-size: 25px; padding: 0 5px; }
-.level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.level-grid button { aspect-ratio: 1; padding: 0; }
+.level-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; max-height: min(70vh, 620px); overflow-y: auto; }
+.level-grid button { min-height: 118px; padding: 6px; display: grid; grid-template-rows: 1fr auto; place-items: center; }
+.level-thumbnail { width: 100%; height: 82px; display: block; }
+.level-grid button span { font-size: 10px; }
 .level-grid button.current { background: var(--accent); color: white; }
 .level-grid button:disabled { opacity: .25; cursor: not-allowed; }
 #result-dialog { text-align: center; }
