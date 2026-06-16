@@ -22,6 +22,18 @@
   };
 
   const viewCorners = [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => makeView([x, y, z]))));
+  const keyOf = view => view.depthSigns.join(",");
+  const viewByKey = Object.fromEntries(viewCorners.map(view => [keyOf(view), view]));
+  const neighborKeys = {
+    "-1,-1,-1": { right: "1,-1,-1", left: "-1,1,-1", down: "-1,-1,1", up: "-1,1,-1" },
+    "-1,-1,1": { right: "1,-1,1", left: "-1,1,1", down: "-1,1,1", up: "-1,-1,-1" },
+    "-1,1,-1": { right: "-1,-1,-1", left: "1,1,-1", down: "-1,1,1", up: "-1,-1,-1" },
+    "-1,1,1": { right: "-1,-1,1", left: "1,1,1", down: "-1,-1,1", up: "-1,1,-1" },
+    "1,-1,-1": { right: "1,1,-1", left: "-1,-1,-1", down: "1,-1,1", up: "-1,-1,-1" },
+    "1,-1,1": { right: "1,1,1", left: "-1,-1,1", down: "-1,-1,1", up: "1,-1,-1" },
+    "1,1,-1": { right: "-1,1,-1", left: "1,-1,-1", down: "1,1,1", up: "-1,1,-1" },
+    "1,1,1": { right: "-1,1,1", left: "1,-1,1", down: "-1,1,1", up: "1,1,-1" },
+  };
   const nearestCorner = basis => viewCorners.reduce((best, view) =>
     dot(view.depth, basis.depth) > dot(best.depth, basis.depth) ? view : best
   );
@@ -61,17 +73,10 @@
   };
 
   const targetForGesture = pointer => {
-    const rotated = rotateView(pointer.from, pointer.axis, pointer.direction * Math.PI / 2);
-    const preservedAxis = pointer.axisName === "horizontal" ? pointer.from.up : pointer.from.right;
-    const targetAxis = pointer.axisName === "horizontal" ? "up" : "right";
-    return viewCorners
-      .filter(view => view !== pointer.from)
-      .map(view => ({
-        view,
-        score: dot(view.depth, rotated.depth),
-        axisScore: dot(view[targetAxis], preservedAxis),
-      }))
-      .sort((a, b) => b.score - a.score || b.axisScore - a.axisScore)[0].view;
+    const directionKey = pointer.axisName === "horizontal"
+      ? (pointer.direction > 0 ? "right" : "left")
+      : (pointer.direction > 0 ? "down" : "up");
+    return viewByKey[neighborKeys[keyOf(pointer.from)][directionKey]];
   };
 
   let currentCorner = nearestCorner(currentView());
