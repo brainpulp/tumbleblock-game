@@ -23,10 +23,10 @@
   };
 
   const bodyAxes = [
-    normalize([1, 1, 1]),
-    normalize([1, 1, -1]),
-    normalize([1, -1, 1]),
-    normalize([-1, 1, 1]),
+    { axis: normalize([1, 1, 1]), signs: [1, 1, 1] },
+    { axis: normalize([1, 1, -1]), signs: [1, 1, -1] },
+    { axis: normalize([1, -1, 1]), signs: [1, -1, 1] },
+    { axis: normalize([-1, 1, 1]), signs: [-1, 1, 1] },
   ];
 
   const viewCorners = [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => makeView([x, y, z]))));
@@ -59,7 +59,10 @@
   };
 
   const projectedAxes = (view = viewBasis) => bodyAxes
-    .map(axis => projectedAxis(axis, view))
+    .map(definition => {
+      const projected = projectedAxis(definition.axis, view);
+      return projected && { ...projected, signs: definition.signs };
+    })
     .filter(Boolean);
 
   let viewBasis = nearestCorner(currentView());
@@ -80,20 +83,37 @@
 
   const drawAxisPreview = () => {
     if (!window.TUMBLEBLOCK_SHOW_CAMERA_AXES) return;
-    const view = orbitPointer?.from || currentView();
-    const axes = projectedAxes(view);
-    const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight * .65 };
-    const length = Math.min(canvas.clientWidth, canvas.clientHeight) * .18;
-    ctx.save();
-    axes.forEach((item, index) => {
-      const selected = orbitPointer?.axis === item.axis;
-      const start = { x: center.x - item.x * length, y: center.y - item.y * length };
-      const end = { x: center.x + item.x * length, y: center.y + item.y * length };
-      ctx.globalAlpha = selected ? 1 : .28;
-      ctx.strokeStyle = selected ? "#1687ff" : "#ff315b";
-      ctx.fillStyle = ctx.strokeStyle;
-      ctx.lineWidth = selected ? 3 : 2;
-      ctx.setLineDash(selected ? [] : [8, 6]);
+    const view = currentView();
+    const startView = orbitPointer?.from || view;
+    const axes = projectedAxes(startView);
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const origin = { x: width / 2, y: height * .65 };
+    const scale = Math.min(width * .17, height * .12, 74) / Math.max(1, bounds(cubes).span / 4);
+    const pivot = [0, 1, 2].map(axis =>
+      cubes.reduce((sum, cube) => sum + cube.pos[axis] + .5, 0) / cubes.length
+    );
+    const projectWithView = (position, basis) => {
+      const relative = sub(position, pivot);
+      return {
+        x: origin.x + dot(relative, basis.right) * scale,
+        y: origin.y - dot(relative, basis.up) * scale,
+      };
+    };
+    const axisSegment = (signs, basis) => {
+      const center = cubes[0].pos.map(value => value + .5);
+      return [
+        projectWithView(center.map((value, index) => value - signs[index] * .5), basis),
+        projectWithView(center.map((value, index) => value + signs[index] * .5), basis),
+      ];
+    };
+    const drawSegment = ([start, end], color, width, alpha, dashed = false) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = width;
+      if (dashed) ctx.setLineDash([7, 5]);
       ctx.beginPath();
       ctx.moveTo(start.x, start.y);
       ctx.lineTo(end.x, end.y);
@@ -101,22 +121,36 @@
       ctx.setLineDash([]);
       for (const point of [start, end]) {
         ctx.beginPath();
-        ctx.arc(point.x, point.y, selected ? 4.5 : 3.5, 0, Math.PI * 2);
+        ctx.arc(point.x, point.y, width + 1.5, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.restore();
+    };
+    ctx.save();
+    axes.forEach((item, index) => {
+      const selected = orbitPointer?.axis === item.axis;
+      if (!selected) {
+        drawSegment(axisSegment(item.signs, startView), "#ff315b", 1.5, .28, true);
+      } else {
+        drawSegment(axisSegment(item.signs, startView), "#1687ff", 3, 1);
+        drawSegment(axisSegment(item.signs, view), "#22c55e", 2, .9, true);
+      }
+      const [, end] = axisSegment(item.signs, startView);
       ctx.font = "700 10px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(String(index + 1), end.x + item.x * 11, end.y + item.y * 11);
+      ctx.fillStyle = selected ? "#1687ff" : "#ff315b";
+      ctx.globalAlpha = selected ? 1 : .45;
+      ctx.fillText(String(index + 1), end.x + item.x * 14, end.y + item.y * 14);
     });
     if (orbitPointer?.axis) {
-      const text = `AXIS LOCKED | ${Math.round(orbitPointer.progress * 100)}%`;
-      const y = center.y + length + 24;
+      const text = `AXIS LOCKED | blue=start, green=live | ${Math.round(orbitPointer.progress * 100)}%`;
+      const y = origin.y + scale * 1.35;
       const width = ctx.measureText(text).width;
       ctx.globalAlpha = 1;
       ctx.fillStyle = "rgba(247, 244, 237, .94)";
-      ctx.fillRect(center.x - width / 2 - 8, y - 14, width + 16, 20);
+      ctx.fillRect(origin.x - width / 2 - 8, y - 14, width + 16, 20);
       ctx.fillStyle = "#1687ff";
-      ctx.fillText(text, center.x, y);
+      ctx.fillText(text, origin.x, y);
     }
     ctx.restore();
   };
