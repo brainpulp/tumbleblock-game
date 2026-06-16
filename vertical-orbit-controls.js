@@ -1,5 +1,6 @@
 (() => {
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
+  window.TUMBLEBLOCK_SHOW_CAMERA_AXES ||= false;
   const quarter = Math.PI / 2, pixelsPerQuarter = 150;
   let viewBasis = currentView(), orbitPointer = null, viewSnap = null;
   const baseRender = render;
@@ -11,7 +12,7 @@
     drawAxis([0,1],horizontalAmount,"#1687ff"); drawAxis([1,0],verticalAmount,"#ff315b");
     const dominantHorizontal=horizontalAmount>=verticalAmount,label=dominantHorizontal?"BLUE: FIXED SCREEN VERTICAL AXIS":"RED: FIXED SCREEN HORIZONTAL AXIS";ctx.save();ctx.font="600 11px system-ui, sans-serif";ctx.textAlign="center";const textWidth=ctx.measureText(label).width,labelY=center.y+length+22;ctx.fillStyle="rgba(247, 244, 237, .92)";ctx.fillRect(center.x-textWidth/2-7,labelY-13,textWidth+14,18);ctx.fillStyle=dominantHorizontal?"#1687ff":"#ff315b";ctx.fillText(label,center.x,labelY);ctx.restore();
   };
-  render = function(){baseRender();drawAxisPreview();};
+  render = function(){baseRender(); if (window.TUMBLEBLOCK_SHOW_CAMERA_AXES) drawAxisPreview();};
   const normalized=vector=>{const length=Math.hypot(...vector);return vector.map(value=>value/length);};
   const rotateAround=(vector,axis,angle)=>{const cosine=Math.cos(angle),sine=Math.sin(angle),crossed=cross(axis,vector),aligned=dot(axis,vector)*(1-cosine);return vector.map((value,index)=>value*cosine+crossed[index]*sine+axis[index]*aligned);};
   const basisAt=(start,horizontal,vertical)=>{const afterHorizontal={right:rotateAround(start.right,start.up,horizontal),up:start.up,depth:rotateAround(start.depth,start.up,horizontal)};return{right:afterHorizontal.right,up:rotateAround(afterHorizontal.up,start.right,vertical),depth:rotateAround(afterHorizontal.depth,start.right,vertical)};};
