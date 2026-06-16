@@ -71,8 +71,9 @@
     return projectedAxes(orbitPointer.from)
       .map(item => ({
         ...item,
-        score: Math.abs(item.x * unit.x + item.y * unit.y),
-        sign: item.x * drag.x + item.y * drag.y >= 0 ? 1 : -1,
+        tangent: { x: -item.y, y: item.x },
+        score: Math.abs(-item.y * unit.x + item.x * unit.y),
+        sign: -item.y * drag.x + item.x * drag.y >= 0 ? 1 : -1,
       }))
       .sort((a, b) => b.score - a.score)[0];
   };
@@ -163,10 +164,11 @@
       if (!picked) return;
       orbitPointer.axis = picked.axis;
       orbitPointer.axisScreen = { x: picked.x, y: picked.y };
+      orbitPointer.tangentScreen = picked.tangent;
       orbitPointer.direction = picked.sign;
     }
 
-    const signedDistance = drag.x * orbitPointer.axisScreen.x + drag.y * orbitPointer.axisScreen.y;
+    const signedDistance = drag.x * orbitPointer.tangentScreen.x + drag.y * orbitPointer.tangentScreen.y;
     orbitPointer.direction = signedDistance >= 0 ? 1 : -1;
     orbitPointer.progress = Math.min(1, Math.abs(signedDistance) / dragDistanceForTurn);
     orbitPointer.committed ||= orbitPointer.progress >= commitProgress;
