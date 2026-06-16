@@ -1,0 +1,18 @@
+(() => {
+  const debugLevel = {
+    title: "Camera Debug",
+    mode: "faces",
+    hint: "Single cube camera test. Drag the background only.",
+    start: [p(0, 0, 0)],
+    target: [p(0, 0, 0)],
+    debugOnly: true,
+  };
+
+  if (levels[0]?.title !== debugLevel.title) {
+    levels.unshift(debugLevel);
+    unlocked = Math.max(unlocked + 1, 0);
+    localStorage.setItem("tumbleblock-unlocked", unlocked);
+  }
+
+  loadLevel(0);
+})();
