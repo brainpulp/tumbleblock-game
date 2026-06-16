@@ -100,13 +100,14 @@
         y: origin.y - dot(relative, basis.up) * scale,
       };
     };
-    const axisSegment = (signs, basis) => {
-      const center = cubes[0].pos.map(value => value + .5);
+    const axisSegment = (center, signs, radius, basis) => {
       return [
-        projectWithView(center.map((value, index) => value - signs[index] * .5), basis),
-        projectWithView(center.map((value, index) => value + signs[index] * .5), basis),
+        projectWithView(center.map((value, index) => value - signs[index] * radius), basis),
+        projectWithView(center.map((value, index) => value + signs[index] * radius), basis),
       ];
     };
+    const pivotSegment = (signs, basis) => axisSegment(pivot, signs, .62, basis);
+    const cubeSegment = (signs, basis) => axisSegment(cubes[0].pos.map(value => value + .5), signs, .5, basis);
     const drawSegment = ([start, end], color, width, alpha, dashed = false) => {
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -130,12 +131,13 @@
     axes.forEach((item, index) => {
       const selected = orbitPointer?.axis === item.axis;
       if (!selected) {
-        drawSegment(axisSegment(item.signs, startView), "#ff315b", 1.5, .28, true);
+        drawSegment(pivotSegment(item.signs, startView), "#ff315b", 1.5, .28, true);
       } else {
-        drawSegment(axisSegment(item.signs, startView), "#1687ff", 3, 1);
-        drawSegment(axisSegment(item.signs, view), "#22c55e", 2, .9, true);
+        drawSegment(cubeSegment(item.signs, startView), "#111827", 1.25, .45, true);
+        drawSegment(pivotSegment(item.signs, startView), "#1687ff", 3, 1);
+        drawSegment(pivotSegment(item.signs, view), "#22c55e", 2, .9, true);
       }
-      const [, end] = axisSegment(item.signs, startView);
+      const [, end] = pivotSegment(item.signs, startView);
       ctx.font = "700 10px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = selected ? "#1687ff" : "#ff315b";
@@ -143,7 +145,7 @@
       ctx.fillText(String(index + 1), end.x + item.x * 14, end.y + item.y * 14);
     });
     if (orbitPointer?.axis) {
-      const text = `AXIS LOCKED | blue=start, green=live | ${Math.round(orbitPointer.progress * 100)}%`;
+      const text = `AXIS LOCKED | blue/green=pivot axis | black=cube diagonal | ${Math.round(orbitPointer.progress * 100)}%`;
       const y = origin.y + scale * 1.35;
       const width = ctx.measureText(text).width;
       ctx.globalAlpha = 1;
