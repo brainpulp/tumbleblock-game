@@ -1,6 +1,6 @@
 (() => {
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
-  window.TUMBLEBLOCK_SHOW_CAMERA_AXES = true;
+  window.TUMBLEBLOCK_SHOW_CAMERA_AXES = !!window.TUMBLEBLOCK_CAMERA_DEBUG;
 
   const dragDistanceForTurn = 170;
   const commitProgress = .25;
