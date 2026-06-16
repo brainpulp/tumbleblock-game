@@ -2,9 +2,10 @@
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
   window.TUMBLEBLOCK_SHOW_CAMERA_AXES = true;
 
-  const dragDistanceForTurn = 160;
+  const dragDistanceForTurn = 170;
   const commitProgress = .25;
   const snapDuration = 220;
+  const turnAngle = Math.PI * 2 / 3;
   const baseRender = render;
   let orbitPointer = null;
   let viewSnap = null;
@@ -18,27 +19,20 @@
     const depth = normalize(depthSigns);
     const right = normalize([depth[1], -depth[0], 0]);
     const up = normalize(cross(right, depth));
-    return { depthSigns, right, up, depth };
+    return { right, up, depth };
   };
 
+  const bodyAxes = [
+    normalize([1, 1, 1]),
+    normalize([1, 1, -1]),
+    normalize([1, -1, 1]),
+    normalize([-1, 1, 1]),
+  ];
+
   const viewCorners = [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => makeView([x, y, z]))));
-  const keyOf = view => view.depthSigns.join(",");
-  const viewByKey = Object.fromEntries(viewCorners.map(view => [keyOf(view), view]));
-  const neighborKeys = {
-    "-1,-1,-1": { right: "1,-1,-1", left: "-1,1,-1", down: "-1,-1,1", up: "-1,1,-1" },
-    "-1,-1,1": { right: "1,-1,1", left: "-1,1,1", down: "1,-1,1", up: "-1,-1,-1" },
-    "-1,1,-1": { right: "-1,-1,-1", left: "1,1,-1", down: "-1,-1,-1", up: "-1,1,1" },
-    "-1,1,1": { right: "-1,-1,1", left: "1,1,1", down: "-1,1,-1", up: "1,1,1" },
-    "1,-1,-1": { right: "1,1,-1", left: "-1,-1,-1", down: "1,1,-1", up: "1,-1,1" },
-    "1,-1,1": { right: "1,1,1", left: "-1,-1,1", down: "1,-1,-1", up: "-1,-1,1" },
-    "1,1,-1": { right: "-1,1,-1", left: "1,-1,-1", down: "1,1,1", up: "1,-1,-1" },
-    "1,1,1": { right: "-1,1,1", left: "1,-1,1", down: "-1,1,1", up: "1,1,-1" },
-  };
   const nearestCorner = basis => viewCorners.reduce((best, view) =>
     dot(view.depth, basis.depth) > dot(best.depth, basis.depth) ? view : best
   );
-
-  const sign = value => value >= 0 ? 1 : -1;
 
   const rotateAround = (vector, axis, angle) => {
     const cosine = Math.cos(angle);
@@ -56,68 +50,73 @@
     depth: normalize(rotateAround(view.depth, axis, angle)),
   });
 
-  const orthonormal = basis => {
-    const depth = normalize(basis.depth);
-    const right = normalize(cross(depth, basis.up));
-    const up = normalize(cross(right, depth));
-    return { right, up, depth };
+  const projectedAxis = (axis, view = viewBasis) => {
+    const x = dot(axis, view.right);
+    const y = -dot(axis, view.up);
+    const length = Math.hypot(x, y);
+    if (length < .08) return null;
+    return { axis, x: x / length, y: y / length, length };
   };
 
-  const blendView = (from, to, amount) => {
-    const t = Math.max(0, Math.min(1, amount));
-    return orthonormal({
-      right: from.right.map((value, index) => value + (to.right[index] - value) * t),
-      up: from.up.map((value, index) => value + (to.up[index] - value) * t),
-      depth: from.depth.map((value, index) => value + (to.depth[index] - value) * t),
-    });
-  };
+  const projectedAxes = (view = viewBasis) => bodyAxes
+    .map(axis => projectedAxis(axis, view))
+    .filter(Boolean);
 
-  const targetForGesture = pointer => {
-    const directionKey = pointer.axisName === "horizontal"
-      ? (pointer.direction > 0 ? "right" : "left")
-      : (pointer.direction > 0 ? "down" : "up");
-    return viewByKey[neighborKeys[keyOf(pointer.from)][directionKey]];
-  };
+  let viewBasis = nearestCorner(currentView());
 
-  let currentCorner = nearestCorner(currentView());
-  let viewBasis = currentCorner;
+  const chooseAxis = drag => {
+    const length = Math.hypot(drag.x, drag.y);
+    if (!length) return null;
+    const unit = { x: drag.x / length, y: drag.y / length };
+    return projectedAxes(orbitPointer.from)
+      .map(item => ({
+        ...item,
+        score: Math.abs(item.x * unit.x + item.y * unit.y),
+        sign: item.x * drag.x + item.y * drag.y >= 0 ? 1 : -1,
+      }))
+      .sort((a, b) => b.score - a.score)[0];
+  };
 
   const drawAxisPreview = () => {
-    if (!window.TUMBLEBLOCK_SHOW_CAMERA_AXES || !orbitPointer?.axisName) return;
-    const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight * .52 };
+    if (!window.TUMBLEBLOCK_SHOW_CAMERA_AXES) return;
+    const view = orbitPointer?.from || currentView();
+    const axes = projectedAxes(view);
+    const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight * .65 };
     const length = Math.min(canvas.clientWidth, canvas.clientHeight) * .18;
-    const horizontal = orbitPointer.axisName === "horizontal";
-    const direction = horizontal ? [0, 1] : [1, 0];
-    const color = horizontal ? "#1687ff" : "#ff315b";
-    const label = horizontal
-      ? `HORIZONTAL DRAG: SCREEN VERTICAL AXIS ${orbitPointer.direction > 0 ? "FORWARD" : "BACK"}`
-      : `VERTICAL DRAG: SCREEN HORIZONTAL AXIS ${orbitPointer.direction > 0 ? "FORWARD" : "BACK"}`;
-    const start = { x: center.x - direction[0] * length, y: center.y - direction[1] * length };
-    const end = { x: center.x + direction[0] * length, y: center.y + direction[1] * length };
     ctx.save();
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([9, 6]);
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    for (const point of [start, center, end]) {
+    axes.forEach((item, index) => {
+      const selected = orbitPointer?.axis === item.axis;
+      const start = { x: center.x - item.x * length, y: center.y - item.y * length };
+      const end = { x: center.x + item.x * length, y: center.y + item.y * length };
+      ctx.globalAlpha = selected ? 1 : .28;
+      ctx.strokeStyle = selected ? "#1687ff" : "#ff315b";
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.lineWidth = selected ? 3 : 2;
+      ctx.setLineDash(selected ? [] : [8, 6]);
       ctx.beginPath();
-      ctx.arc(point.x, point.y, point === center ? 6 : 4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (const point of [start, end]) {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, selected ? 4.5 : 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.font = "700 10px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(String(index + 1), end.x + item.x * 11, end.y + item.y * 11);
+    });
+    if (orbitPointer?.axis) {
+      const text = `AXIS LOCKED | ${Math.round(orbitPointer.progress * 100)}%`;
+      const y = center.y + length + 24;
+      const width = ctx.measureText(text).width;
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "rgba(247, 244, 237, .94)";
+      ctx.fillRect(center.x - width / 2 - 8, y - 14, width + 16, 20);
+      ctx.fillStyle = "#1687ff";
+      ctx.fillText(text, center.x, y);
     }
-    ctx.font = "700 11px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    const text = `${label} | ${Math.round(orbitPointer.progress * 100)}%`;
-    const width = ctx.measureText(text).width;
-    const y = center.y + length + 24;
-    ctx.fillStyle = "rgba(247, 244, 237, .94)";
-    ctx.fillRect(center.x - width / 2 - 8, y - 14, width + 16, 20);
-    ctx.fillStyle = color;
-    ctx.fillText(text, center.x, y);
     ctx.restore();
   };
 
@@ -126,7 +125,7 @@
     const raw = Math.min(1, (now - viewSnap.started) / viewSnap.duration);
     const eased = raw * raw * (3 - 2 * raw);
     const progress = viewSnap.fromProgress + (viewSnap.toProgress - viewSnap.fromProgress) * eased;
-    return blendView(viewSnap.from, viewSnap.to, progress);
+    return rotateView(viewSnap.from, viewSnap.axis, viewSnap.direction * progress * turnAngle);
   };
 
   render = function() {
@@ -144,12 +143,11 @@
     orbitPointer = {
       pointerId: event.pointerId,
       start: point,
-      from: currentCorner,
-      axisName: null,
+      from: viewBasis,
       axis: null,
-      direction: 0,
+      axisScreen: null,
+      direction: 1,
       progress: 0,
-      target: currentCorner,
       committed: false,
     };
   }, true);
@@ -158,24 +156,25 @@
     if (!orbitPointer || event.pointerId !== orbitPointer.pointerId || animation) return;
     event.stopImmediatePropagation();
     const point = localPoint(event);
-    const dx = point.x - orbitPointer.start.x;
-    const dy = point.y - orbitPointer.start.y;
-    if (!orbitPointer.axisName) {
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
-      orbitPointer.axisName = Math.abs(dx) >= Math.abs(dy) ? "horizontal" : "vertical";
-      orbitPointer.axis = orbitPointer.axisName === "horizontal"
-        ? orbitPointer.from.up
-        : orbitPointer.from.right;
+    const drag = { x: point.x - orbitPointer.start.x, y: point.y - orbitPointer.start.y };
+    if (!orbitPointer.axis) {
+      if (Math.max(Math.abs(drag.x), Math.abs(drag.y)) < 8) return;
+      const picked = chooseAxis(drag);
+      if (!picked) return;
+      orbitPointer.axis = picked.axis;
+      orbitPointer.axisScreen = { x: picked.x, y: picked.y };
+      orbitPointer.direction = picked.sign;
     }
 
-    const raw = orbitPointer.axisName === "horizontal" ? dx : dy;
-    orbitPointer.direction = sign(raw);
-    orbitPointer.progress = Math.min(1, Math.abs(raw) / dragDistanceForTurn);
-    if (!orbitPointer.committed) {
-      orbitPointer.target = targetForGesture(orbitPointer);
-      orbitPointer.committed = orbitPointer.progress >= commitProgress;
-    }
-    viewBasis = blendView(orbitPointer.from, orbitPointer.target, orbitPointer.progress);
+    const signedDistance = drag.x * orbitPointer.axisScreen.x + drag.y * orbitPointer.axisScreen.y;
+    orbitPointer.direction = signedDistance >= 0 ? 1 : -1;
+    orbitPointer.progress = Math.min(1, Math.abs(signedDistance) / dragDistanceForTurn);
+    orbitPointer.committed ||= orbitPointer.progress >= commitProgress;
+    viewBasis = rotateView(
+      orbitPointer.from,
+      orbitPointer.axis,
+      orbitPointer.direction * orbitPointer.progress * turnAngle
+    );
     render();
   }, true);
 
@@ -184,12 +183,13 @@
     event.stopImmediatePropagation();
     const pointer = orbitPointer;
     orbitPointer = null;
-    if (!pointer.axisName) return;
+    if (!pointer.axis) return;
 
     const toProgress = pointer.committed ? 1 : 0;
     viewSnap = {
       from: pointer.from,
-      to: pointer.target,
+      axis: pointer.axis,
+      direction: pointer.direction,
       fromProgress: pointer.progress,
       toProgress,
       started: performance.now(),
@@ -199,8 +199,8 @@
     playSound("camera");
     render();
     setTimeout(() => {
-      currentCorner = pointer.committed ? pointer.target : pointer.from;
-      viewBasis = currentCorner;
+      viewBasis = rotateView(pointer.from, pointer.axis, pointer.direction * toProgress * turnAngle);
+      viewBasis = pointer.committed ? viewBasis : pointer.from;
       viewSnap = null;
       cameraSnap = null;
       render();
