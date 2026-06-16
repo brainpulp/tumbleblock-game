@@ -1,6 +1,6 @@
 (() => {
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
-  window.TUMBLEBLOCK_SHOW_CAMERA_AXES ||= false;
+  window.TUMBLEBLOCK_SHOW_CAMERA_AXES = true;
 
   const dragDistanceForTurn = 160;
   const commitProgress = .25;
@@ -77,6 +77,45 @@
   let currentCorner = nearestCorner(currentView());
   let viewBasis = currentCorner;
 
+  const drawAxisPreview = () => {
+    if (!window.TUMBLEBLOCK_SHOW_CAMERA_AXES || !orbitPointer?.axisName) return;
+    const center = { x: canvas.clientWidth / 2, y: canvas.clientHeight * .52 };
+    const length = Math.min(canvas.clientWidth, canvas.clientHeight) * .18;
+    const horizontal = orbitPointer.axisName === "horizontal";
+    const direction = horizontal ? [0, 1] : [1, 0];
+    const color = horizontal ? "#1687ff" : "#ff315b";
+    const label = horizontal
+      ? `HORIZONTAL DRAG: SCREEN VERTICAL AXIS ${orbitPointer.direction > 0 ? "FORWARD" : "BACK"}`
+      : `VERTICAL DRAG: SCREEN HORIZONTAL AXIS ${orbitPointer.direction > 0 ? "FORWARD" : "BACK"}`;
+    const start = { x: center.x - direction[0] * length, y: center.y - direction[1] * length };
+    const end = { x: center.x + direction[0] * length, y: center.y + direction[1] * length };
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([9, 6]);
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const point of [start, center, end]) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, point === center ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.font = "700 11px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    const text = `${label} | ${Math.round(orbitPointer.progress * 100)}%`;
+    const width = ctx.measureText(text).width;
+    const y = center.y + length + 24;
+    ctx.fillStyle = "rgba(247, 244, 237, .94)";
+    ctx.fillRect(center.x - width / 2 - 8, y - 14, width + 16, 20);
+    ctx.fillStyle = color;
+    ctx.fillText(text, center.x, y);
+    ctx.restore();
+  };
+
   currentView = function(now = performance.now()) {
     if (!viewSnap) return viewBasis;
     const raw = Math.min(1, (now - viewSnap.started) / viewSnap.duration);
@@ -87,6 +126,7 @@
 
   render = function() {
     baseRender();
+    drawAxisPreview();
   };
 
   canvas.addEventListener("pointerdown", event => {
