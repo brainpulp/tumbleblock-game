@@ -107,7 +107,15 @@
       ];
     };
     const pivotSegment = (signs, basis) => axisSegment(pivot, signs, .62, basis);
-    const cubeSegment = (signs, basis) => axisSegment(cubes[0].pos.map(value => value + .5), signs, .5, basis);
+    const cubeSegments = (signs, basis) => cubes.map(cube =>
+      axisSegment(cube.pos.map(value => value + .5), signs, .5, basis)
+    );
+    const segmentAngle = ([start, end]) => Math.atan2(end.y - start.y, end.x - start.x);
+    const angleDrift = (a, b) => {
+      const delta = Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+      return Math.min(delta, Math.PI - delta) * 180 / Math.PI;
+    };
+    let lockedDrift = null;
     const drawSegment = ([start, end], color, width, alpha, dashed = false) => {
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -131,11 +139,20 @@
     axes.forEach((item, index) => {
       const selected = orbitPointer?.axis === item.axis;
       if (!selected) {
+        if (orbitPointer?.axis) return;
         drawSegment(pivotSegment(item.signs, startView), "#ff315b", 1.5, .28, true);
       } else {
-        drawSegment(cubeSegment(item.signs, startView), "#111827", 1.25, .45, true);
-        drawSegment(pivotSegment(item.signs, startView), "#1687ff", 3, 1);
-        drawSegment(pivotSegment(item.signs, view), "#22c55e", 2, .9, true);
+        cubeSegments(item.signs, startView).forEach(segment =>
+          drawSegment(segment, "#111827", 1, .25, true)
+        );
+        cubeSegments(item.signs, view).forEach(segment =>
+          drawSegment(segment, "#111827", 1.5, .85)
+        );
+        const startSegment = pivotSegment(item.signs, startView);
+        const liveSegment = pivotSegment(item.signs, view);
+        lockedDrift = angleDrift(segmentAngle(startSegment), segmentAngle(liveSegment));
+        drawSegment(startSegment, "#1687ff", 3, 1);
+        drawSegment(liveSegment, "#22c55e", 2, .9, true);
       }
       const [, end] = pivotSegment(item.signs, startView);
       ctx.font = "700 10px system-ui, sans-serif";
@@ -145,7 +162,8 @@
       ctx.fillText(String(index + 1), end.x + item.x * 14, end.y + item.y * 14);
     });
     if (orbitPointer?.axis) {
-      const text = `AXIS LOCKED | blue/green=pivot axis | black=cube diagonal | ${Math.round(orbitPointer.progress * 100)}%`;
+      const drift = lockedDrift == null ? "--" : `${lockedDrift.toFixed(1)}deg`;
+      const text = `PIVOT AXIS LOCKED | drift ${drift} | black=live cube-parallel axes | ${Math.round(orbitPointer.progress * 100)}%`;
       const y = origin.y + scale * 1.35;
       const width = ctx.measureText(text).width;
       ctx.globalAlpha = 1;
