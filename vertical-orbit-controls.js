@@ -5,7 +5,7 @@
   const dragDistanceForTurn = 170;
   const commitProgress = .25;
   const snapDuration = 220;
-  const turnAngle = Math.PI * 2 / 3;
+  const turnAngle = Math.PI / 2;
   const baseRender = render;
   let orbitPointer = null;
   let viewSnap = null;
@@ -22,11 +22,10 @@
     return { right, up, depth };
   };
 
-  const bodyAxes = [
-    { axis: normalize([1, 1, 1]), signs: [1, 1, 1] },
-    { axis: normalize([1, 1, -1]), signs: [1, 1, -1] },
-    { axis: normalize([1, -1, 1]), signs: [1, -1, 1] },
-    { axis: normalize([-1, 1, 1]), signs: [-1, 1, 1] },
+  const faceAxes = [
+    { axis: [1, 0, 0], signs: [1, 0, 0], label: "X" },
+    { axis: [0, 1, 0], signs: [0, 1, 0], label: "Y" },
+    { axis: [0, 0, 1], signs: [0, 0, 1], label: "Z" },
   ];
 
   const viewCorners = [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => makeView([x, y, z]))));
@@ -58,10 +57,10 @@
     return { axis, x: x / length, y: y / length, length };
   };
 
-  const projectedAxes = (view = viewBasis) => bodyAxes
+  const projectedAxes = (view = viewBasis) => faceAxes
     .map(definition => {
       const projected = projectedAxis(definition.axis, view);
-      return projected && { ...projected, signs: definition.signs };
+      return projected && { ...projected, signs: definition.signs, label: definition.label };
     })
     .filter(Boolean);
 
@@ -136,7 +135,7 @@
       ctx.restore();
     };
     ctx.save();
-    axes.forEach((item, index) => {
+    axes.forEach(item => {
       const selected = orbitPointer?.axis === item.axis;
       if (!selected) {
         if (orbitPointer?.axis) return;
@@ -159,11 +158,11 @@
       ctx.textAlign = "center";
       ctx.fillStyle = selected ? "#1687ff" : "#ff315b";
       ctx.globalAlpha = selected ? 1 : .45;
-      ctx.fillText(String(index + 1), end.x + item.x * 14, end.y + item.y * 14);
+      ctx.fillText(item.label, end.x + item.x * 14, end.y + item.y * 14);
     });
     if (orbitPointer?.axis) {
       const drift = lockedDrift == null ? "--" : `${lockedDrift.toFixed(1)}deg`;
-      const text = `PIVOT AXIS LOCKED | drift ${drift} | black=live cube-parallel axes | ${Math.round(orbitPointer.progress * 100)}%`;
+      const text = `FACE AXIS LOCKED | drift ${drift} | black=live face-center axes | ${Math.round(orbitPointer.progress * 100)}%`;
       const y = origin.y + scale * 1.35;
       const width = ctx.measureText(text).width;
       ctx.globalAlpha = 1;
