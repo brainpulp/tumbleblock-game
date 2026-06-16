@@ -25,14 +25,14 @@
   const keyOf = view => view.depthSigns.join(",");
   const viewByKey = Object.fromEntries(viewCorners.map(view => [keyOf(view), view]));
   const neighborKeys = {
-    "-1,-1,-1": { right: "1,-1,-1", left: "-1,1,-1", down: "-1,-1,1", up: "-1,-1,1" },
-    "-1,-1,1": { right: "1,-1,1", left: "-1,1,1", down: "-1,-1,-1", up: "-1,-1,-1" },
-    "-1,1,-1": { right: "-1,-1,-1", left: "1,1,-1", down: "-1,1,1", up: "-1,1,1" },
-    "-1,1,1": { right: "-1,-1,1", left: "1,1,1", down: "-1,1,-1", up: "-1,1,-1" },
-    "1,-1,-1": { right: "1,1,-1", left: "-1,-1,-1", down: "1,-1,1", up: "1,-1,1" },
-    "1,-1,1": { right: "1,1,1", left: "-1,-1,1", down: "1,-1,-1", up: "1,-1,-1" },
-    "1,1,-1": { right: "-1,1,-1", left: "1,-1,-1", down: "1,1,1", up: "1,1,1" },
-    "1,1,1": { right: "-1,1,1", left: "1,-1,1", down: "1,1,-1", up: "1,1,-1" },
+    "-1,-1,-1": { right: "1,-1,-1", left: "-1,1,-1", down: "-1,-1,1", up: "-1,1,-1" },
+    "-1,-1,1": { right: "1,-1,1", left: "-1,1,1", down: "1,-1,1", up: "-1,-1,-1" },
+    "-1,1,-1": { right: "-1,-1,-1", left: "1,1,-1", down: "-1,-1,-1", up: "-1,1,1" },
+    "-1,1,1": { right: "-1,-1,1", left: "1,1,1", down: "-1,1,-1", up: "1,1,1" },
+    "1,-1,-1": { right: "1,1,-1", left: "-1,-1,-1", down: "1,1,-1", up: "1,-1,1" },
+    "1,-1,1": { right: "1,1,1", left: "-1,-1,1", down: "1,-1,-1", up: "-1,-1,1" },
+    "1,1,-1": { right: "-1,1,-1", left: "1,-1,-1", down: "1,1,1", up: "1,-1,-1" },
+    "1,1,1": { right: "-1,1,1", left: "1,-1,1", down: "-1,1,1", up: "1,1,-1" },
   };
   const nearestCorner = basis => viewCorners.reduce((best, view) =>
     dot(view.depth, basis.depth) > dot(best.depth, basis.depth) ? view : best
