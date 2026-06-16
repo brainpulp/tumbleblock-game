@@ -1,4 +1,10 @@
 (() => {
+  const debugRequested = new URLSearchParams(location.search).has("cameraDebug") ||
+    location.hash === "#cameraDebug";
+  if (!debugRequested) return;
+
+  window.TUMBLEBLOCK_CAMERA_DEBUG = true;
+
   const debugLevel = {
     title: "Camera Debug",
     mode: "faces",
