@@ -1,4 +1,4 @@
 window.TUMBLEBLOCK_BUILD = {
-  deployedAt: "2026-06-16T19:29:24Z",
-  commit: "axis-parallel-debug-20260616-192924",
+  deployedAt: "2026-06-16T19:56:17Z",
+  commit: "face-axis-camera-20260616-195617",
 };
