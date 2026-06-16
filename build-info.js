@@ -1,4 +1,4 @@
 window.TUMBLEBLOCK_BUILD = {
-  deployedAt: "2026-06-16T18:17:14Z",
-  commit: "camera-debug-level-716f52b",
+  deployedAt: "2026-06-16T18:24:03Z",
+  commit: "camera-axis-separate-3de560e",
 };
