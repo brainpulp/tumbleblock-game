@@ -14,5 +14,6 @@
     localStorage.setItem("tumbleblock-unlocked", unlocked);
   }
 
+  window.TUMBLEBLOCK_SAVED_LEVEL = 0;
   loadLevel(0);
 })();
