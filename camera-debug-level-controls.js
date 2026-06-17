@@ -1,10 +1,6 @@
 (() => {
   const debugRequested = new URLSearchParams(location.search).has("cameraDebug") ||
     location.hash === "#cameraDebug";
-  if (!debugRequested) return;
-
-  window.TUMBLEBLOCK_CAMERA_DEBUG = true;
-
   const debugLevel = {
     title: "Camera Debug",
     mode: "faces",
@@ -14,12 +10,24 @@
     debugOnly: true,
   };
 
-  if (levels[0]?.title !== debugLevel.title) {
-    levels.unshift(debugLevel);
-    unlocked = Math.max(unlocked + 1, 0);
-    localStorage.setItem("tumbleblock-unlocked", unlocked);
+  let debugIndex = levels.findIndex(level => level.debugOnly);
+  if (debugIndex < 0) {
+    levels.push(debugLevel);
+    debugIndex = levels.length - 1;
   }
 
-  window.TUMBLEBLOCK_SAVED_LEVEL = 0;
-  loadLevel(0);
+  const baseLoadLevel = loadLevel;
+  loadLevel = function(index) {
+    const isDebug = !!levels[index]?.debugOnly;
+    window.TUMBLEBLOCK_CAMERA_DEBUG = isDebug;
+    window.TUMBLEBLOCK_SHOW_CAMERA_AXES = isDebug;
+    const result = baseLoadLevel(index);
+    if (isDebug) document.querySelector("#hint").textContent = debugLevel.hint;
+    return result;
+  };
+
+  if (debugRequested) {
+    window.TUMBLEBLOCK_SAVED_LEVEL = debugIndex;
+    loadLevel(debugIndex);
+  }
 })();
