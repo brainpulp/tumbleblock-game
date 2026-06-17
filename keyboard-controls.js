@@ -45,13 +45,19 @@
   }
 
   function rollOptions(index) {
-    return rollCandidates(index).map(candidate => ({
-      mode: "roll",
-      index,
-      candidate,
-      destination: candidate.destination,
-      screen: candidate.screen,
-    }));
+    const occupied = new Set(cubes.filter((_, cubeIndex) => cubeIndex !== index).map(cube => k(cube.pos)));
+    return rollCandidates(index)
+      .filter(candidate =>
+        validDestination(index, candidate.destination) &&
+        candidate.path.every(step => !occupied.has(k(step.destination)))
+      )
+      .map(candidate => ({
+        mode: "roll",
+        index,
+        candidate,
+        destination: candidate.destination,
+        screen: candidate.screen,
+      }));
   }
 
   function moveOptions(index) {
@@ -67,6 +73,24 @@
         (a.candidate?.turns || 1) - (b.candidate?.turns || 1) ||
         a.originalIndex - b.originalIndex
       );
+  }
+
+  function samePosition(a, b) {
+    return eq(a, b);
+  }
+
+  function sameMove(a, b) {
+    return a &&
+      b &&
+      a.mode === b.mode &&
+      a.index === b.index &&
+      samePosition(a.destination, b.destination) &&
+      (a.mode !== "roll" || (a.candidate?.turns || 1) === (b.candidate?.turns || 1));
+  }
+
+  function currentLegalMove(choice) {
+    if (!choice) return null;
+    return moveOptions(choice.index).find(option => sameMove(option, choice)) || null;
   }
 
   function movableIndices() {
@@ -129,7 +153,12 @@
 
   function commitPreview() {
     if (!preview?.choice || animation) return;
-    const choice = preview.choice;
+    const choice = currentLegalMove(preview.choice);
+    if (!choice) {
+      clearPreview();
+      blocked();
+      return;
+    }
     preview = null;
     if (choice.mode === "roll") {
       return animateMove({
@@ -293,8 +322,8 @@
     const direction = keyDirections[event.code];
     if (direction) {
       event.preventDefault();
-      clearPreview();
       turnCamera(direction);
+      render();
     }
   });
 
