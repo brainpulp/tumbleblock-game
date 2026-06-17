@@ -2,6 +2,7 @@
   let selectedIndex = 0;
   let preview = null;
   let moveCursor = 0;
+  let keyboardActive = false;
 
   const keyDirections = {
     ArrowUp: [0, -1],
@@ -85,6 +86,7 @@
   }
 
   function cycleCube(delta) {
+    keyboardActive = true;
     clearPreview();
     const movable = movableIndices();
     if (!movable.length) {
@@ -104,6 +106,7 @@
 
   function cycleMove(delta = 1) {
     if (won || cameraSnap || animation) return;
+    keyboardActive = true;
     if (!ensureMovableSelection()) {
       blocked();
       return;
@@ -189,8 +192,8 @@
     selectedIndex = 0;
     preview = null;
     moveCursor = 0;
+    keyboardActive = false;
     const result = baseLoadLevel(index);
-    ensureMovableSelection();
     render();
     return result;
   };
@@ -198,7 +201,7 @@
   const baseRender = render;
   render = function() {
     baseRender();
-    ensureMovableSelection();
+    if (keyboardActive) ensureMovableSelection();
 
     if (preview?.choice && !animation) {
       const choice = preview.choice;
@@ -239,7 +242,7 @@
       ctx.restore();
     }
 
-    if (animation || !hitFaces.length || !moveOptions(selectedIndex).length) return;
+    if (!keyboardActive || animation || !hitFaces.length || !moveOptions(selectedIndex).length) return;
     ctx.save();
     ctx.strokeStyle = "#1687ff";
     ctx.lineWidth = 3;
@@ -297,6 +300,5 @@
 
   document.querySelector("#hint").textContent =
     "Keyboard: Tab selects movable cubes, Space cycles possible moves, Enter commits. Mouse controls still work.";
-  ensureMovableSelection();
   render();
 })();
