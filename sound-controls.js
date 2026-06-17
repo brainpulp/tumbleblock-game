@@ -18,9 +18,14 @@
   }
 
   playSound = function(type) {
-    if (type !== "camera" && type !== "win") return basePlaySound(type);
+    if (type !== "camera" && type !== "win" && type !== "select") return basePlaySound(type);
     audio ||= new AudioContext();
     const now = audio.currentTime;
+    if (type === "select") {
+      tone(520, now, .055, .022, "square");
+      tone(780, now + .035, .06, .014, "triangle");
+      return;
+    }
     if (type === "camera") {
       tone(220, now, .12, .025, "triangle");
       tone(330, now + .045, .13, .018, "triangle");
