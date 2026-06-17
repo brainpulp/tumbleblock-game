@@ -11,6 +11,7 @@
   const hushControls = document.querySelector(".hush-controls");
   const solutionCache = new Map();
   const pendingSolves = new Map();
+  window.TUMBLEBLOCK_BEST_POSSIBLE ||= {};
   let currentSolution = null;
   let clueStep = 0;
   let allWarmStarted = false;
@@ -174,6 +175,12 @@
     return `${solution.moves.length} move${solution.moves.length === 1 ? "" : "s"}`;
   }
 
+  function setBestPossible(index, solution) {
+    if (!solution?.exact) return;
+    window.TUMBLEBLOCK_BEST_POSSIBLE[index] = solution.moves.length;
+    window.TUMBLEBLOCK_UPDATE_RECORD_STRIP?.();
+  }
+
   function showStepHint() {
     if (!currentSolution?.exact) {
       clueCopy.textContent = currentSolution
@@ -215,6 +222,7 @@
 
     currentSolution = here;
     clueStep = 0;
+    setBestPossible(levelIndex, perfect);
     perfectRoute.textContent = routeLabel(perfect);
     currentRoute.textContent = routeLabel(here);
     showStepHint();
@@ -295,7 +303,8 @@
     allWarmStarted = true;
     for (let index = 0; index < levels.length; index++) {
       const level = levels[index];
-      await solveState(level, level.start, `start:${index}:${stateKey(level.start, level.mode)}`);
+      const solution = await solveState(level, level.start, `start:${index}:${stateKey(level.start, level.mode)}`);
+      setBestPossible(index, solution);
       if (index === levelIndex && dialog.open) refreshClues();
     }
   }

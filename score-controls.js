@@ -4,7 +4,17 @@
   let startedAt = performance.now();
   let lastResult = null;
   const timer = document.querySelector("#timer");
+  const recordStrip = document.querySelector("#record-strip");
   const formatTime = milliseconds => { if (milliseconds == null) return "--"; const seconds = milliseconds / 1000; return seconds < 60 ? `${seconds.toFixed(1)}s` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2,"0")}`; };
+  const moveLabel = value => value == null ? "--" : `${value}`;
+  function updateRecordStrip() {
+    if (!recordStrip) return;
+    const score = scores[levelIndex];
+    const total = Object.values(scores).reduce((sum, item) => sum + (Number.isFinite(item?.moves) ? item.moves : 0), 0);
+    const bestPossible = window.TUMBLEBLOCK_BEST_POSSIBLE?.[levelIndex];
+    recordStrip.textContent = `Your record ${moveLabel(score?.moves)} · Total record ${total || "--"} · Best possible ${moveLabel(bestPossible)}`;
+  }
+  window.TUMBLEBLOCK_UPDATE_RECORD_STRIP = updateRecordStrip;
   function saveResult() {
     const elapsed = Math.max(1,Math.round(performance.now()-startedAt)); const previous=scores[levelIndex]||{};
     const moveRecord=previous.moves==null||moves<previous.moves; const timeRecord=previous.time==null||elapsed<previous.time;
@@ -13,13 +23,13 @@
   }
   function updateTimer(){timer.textContent=formatTime(lastResult?lastResult.elapsed:performance.now()-startedAt);}
   function renderScores(){const list=document.querySelector("#scores-list");list.innerHTML="";levels.forEach((level,index)=>{const score=scores[index],row=document.createElement("div");row.className="score-row";row.innerHTML=`<span>${index+1}</span><strong>${level.title}</strong><span>${score?`${score.moves} moves`:"--"}</span><span>${formatTime(score?.time)}</span>`;list.append(row);});}
-  const baseLoadLevel=loadLevel;loadLevel=function(index){const result=baseLoadLevel(index);startedAt=performance.now();lastResult=null;updateTimer();return result;};
-  const baseCompleteLevel=completeLevel;completeLevel=function(){const result=saveResult();const records=[result.moveRecord&&"best moves",result.timeRecord&&"best time"].filter(Boolean);const copy=`Solved in ${result.moves} moves and ${formatTime(result.elapsed)}${records.length?` - new ${records.join(" + ")}`:""}.`;ui.resultCopy.textContent=copy;const completed=baseCompleteLevel();setTimeout(()=>{ui.resultCopy.textContent=copy;},0);renderScores();return completed;};
+  const baseLoadLevel=loadLevel;loadLevel=function(index){const result=baseLoadLevel(index);startedAt=performance.now();lastResult=null;updateTimer();updateRecordStrip();return result;};
+  const baseCompleteLevel=completeLevel;completeLevel=function(){const result=saveResult();const records=[result.moveRecord&&"best moves",result.timeRecord&&"best time"].filter(Boolean);const copy=`Solved in ${result.moves} moves and ${formatTime(result.elapsed)}${records.length?` - new ${records.join(" + ")}`:""}.`;ui.resultCopy.textContent=copy;const completed=baseCompleteLevel();setTimeout(()=>{ui.resultCopy.textContent=copy;},0);renderScores();updateRecordStrip();return completed;};
   const baseBuildLevelGrid=buildLevelGrid;buildLevelGrid=function(){baseBuildLevelGrid();[...ui.levelGrid.querySelectorAll("button")].forEach((button,index)=>{const score=scores[index];if(!score)return;const summary=document.createElement("small");summary.className="level-score";summary.textContent=`${score.moves} / ${formatTime(score.time)}`;button.append(summary);});};
   document.querySelector("#scores").onclick=()=>{renderScores();document.querySelector("#scores-dialog").showModal();};
   document.querySelector("#close-scores").onclick=()=>document.querySelector("#scores-dialog").close();
   document.querySelector("#repeat-level").onclick=()=>loadLevel(levelIndex);
   document.querySelector("#share-result").onclick=async()=>{const result=lastResult;if(!result)return;const url=new URL(location.href);url.search="";url.searchParams.set("challenge",result.levelIndex+1);const text=`I solved Tumbleblock level ${result.levelIndex+1}, ${levels[result.levelIndex].title}, in ${result.moves} moves and ${formatTime(result.elapsed)}. Can you beat me?`;try{if(navigator.share)await navigator.share({title:"Tumbleblock Challenge",text,url:url.href});else{await navigator.clipboard.writeText(`${text} ${url.href}`);showMessage("Challenge copied");}}catch(error){if(error.name!=="AbortError")showMessage("Unable to share");}};
   const challenge=Number(new URLSearchParams(location.search).get("challenge"));if(challenge>=1&&challenge<=levels.length){unlocked=Math.max(unlocked,challenge-1);localStorage.setItem("tumbleblock-unlocked",unlocked);loadLevel(challenge-1);showMessage("Challenge loaded");}
-  renderScores();updateTimer();setInterval(updateTimer,100);
+  renderScores();updateTimer();updateRecordStrip();setInterval(updateTimer,100);
 })();
