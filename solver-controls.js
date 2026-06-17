@@ -14,7 +14,7 @@
   window.TUMBLEBLOCK_BEST_POSSIBLE ||= {};
   let currentSolution = null;
   let clueStep = 0;
-  let allWarmStarted = false;
+  let currentBestTimer = null;
 
   const cloneCube = cube => ({
     pos: [...cube.pos],
@@ -138,7 +138,7 @@
       };
 
       const step = () => {
-        const until = Math.min(queue.length, cursor + 240);
+        const until = Math.min(queue.length, cursor + 80);
         for (; cursor < until; cursor++) {
           const item = queue[cursor];
           for (const move of enumerateMoves(item.state)) {
@@ -154,7 +154,7 @@
             queue.push({ state: nextState, path });
           }
         }
-        if (cursor < queue.length) setTimeout(step, 0);
+        if (cursor < queue.length) setTimeout(step, 8);
         else finish({ moves: [], visited: seen.size, exact: false });
       };
 
@@ -179,6 +179,17 @@
     if (!solution?.exact) return;
     window.TUMBLEBLOCK_BEST_POSSIBLE[index] = solution.moves.length;
     window.TUMBLEBLOCK_UPDATE_RECORD_STRIP?.();
+  }
+
+  function scheduleCurrentBest() {
+    clearTimeout(currentBestTimer);
+    currentBestTimer = setTimeout(async () => {
+      const index = levelIndex;
+      const level = levels[index];
+      const cacheName = `start:${index}:${stateKey(level.start, level.mode)}`;
+      const solution = await solveState(level, level.start, cacheName);
+      setBestPossible(index, solution);
+    }, 250);
   }
 
   function showStepHint() {
@@ -298,21 +309,11 @@
     updateHushState();
   }
 
-  async function warmAllSolutions() {
-    if (allWarmStarted) return;
-    allWarmStarted = true;
-    for (let index = 0; index < levels.length; index++) {
-      const level = levels[index];
-      const solution = await solveState(level, level.start, `start:${index}:${stateKey(level.start, level.mode)}`);
-      setBestPossible(index, solution);
-      if (index === levelIndex && dialog.open) refreshClues();
-    }
-  }
-
   const baseLoadLevel = loadLevel;
   loadLevel = function(index) {
     const result = baseLoadLevel(index);
     currentSolution = null;
+    scheduleCurrentBest();
     return result;
   };
 
@@ -340,7 +341,6 @@
   clueButton.onclick = () => {
     dialog.showModal();
     refreshClues();
-    warmAllSolutions();
   };
   document.querySelector("#close-clues").onclick = () => dialog.close();
   nextClue.onclick = () => {
@@ -359,5 +359,5 @@
     if (speed) playHush(speed);
   });
 
-  setTimeout(warmAllSolutions, 700);
+  scheduleCurrentBest();
 })();

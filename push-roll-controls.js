@@ -13,20 +13,38 @@
     return orientation;
   }
 
+  function pushScore(cube, pushDirection, candidate) {
+    const points = [candidate.destination, ...candidate.path.map(step => step.destination)];
+    return Math.max(...points.map(point => {
+      const displacement = sub(point, cube.pos);
+      const length = Math.hypot(...displacement);
+      return length ? dot(pushDirection, displacement) / length : -1;
+    }));
+  }
+
+  function sameRoute(a, b) {
+    return eq(a.destination, b.destination) &&
+      a.path.length === b.path.length &&
+      a.path.every((step, index) => eq(step.axis, b.path[index].axis));
+  }
+
   doSlide = function(face) {
     const pushDirection = neg(face.normal);
     const slideDestination = add(face.cube.pos, pushDirection);
     if (validDestination(face.cubeIndex, slideDestination)) return originalSlide(face);
 
-    const roll = rollCandidates(face.cubeIndex)
-      .map(candidate => {
-        const displacement = sub(candidate.path[0].destination, face.cube.pos);
-        return { candidate, score: dot(pushDirection, displacement) / Math.hypot(...displacement) };
-      })
+    const scored = rollCandidates(face.cubeIndex)
+      .map(candidate => ({ candidate, score: pushScore(face.cube, pushDirection, candidate) }))
       .filter(entry => entry.score > .5)
-      .sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns)[0]?.candidate;
-
-    if (!roll) return blocked();
+      .sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns);
+    const best = scored[0];
+    if (!best) return blocked();
+    const tied = scored.find(entry => entry !== best && entry.score >= best.score - .08 && !sameRoute(entry.candidate, best.candidate));
+    if (tied) {
+      showMessage("Ambiguous push");
+      return blocked();
+    }
+    const roll = best.candidate;
     return animateMove({
       index: face.cubeIndex,
       destination: roll.destination,
