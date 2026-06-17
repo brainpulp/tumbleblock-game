@@ -4,10 +4,12 @@
 
   const dragDistanceForTurn = 170;
   const commitProgress = .25;
+  const previewFollowDuration = 120;
   const snapDuration = 220;
   const turnAngle = Math.PI / 2;
   const baseRender = render;
   let orbitPointer = null;
+  let previewSnap = null;
   let viewSnap = null;
 
   const normalize = vector => {
@@ -48,6 +50,32 @@
     up: normalize(rotateAround(view.up, axis, angle)),
     depth: normalize(rotateAround(view.depth, axis, angle)),
   });
+
+  const interpolateView = (from, to, progress) => {
+    const mix = (a, b) => a.map((value, index) => value + (b[index] - value) * progress);
+    const depth = normalize(mix(from.depth, to.depth));
+    const mixedUp = normalize(mix(from.up, to.up));
+    const right = normalize(cross(depth, mixedUp));
+    const up = normalize(cross(right, depth));
+    return { right, up, depth };
+  };
+
+  const ease = raw => raw * raw * (3 - 2 * raw);
+
+  const viewBetween = (snap, now) => {
+    const raw = Math.min(1, (now - snap.started) / snap.duration);
+    return interpolateView(snap.fromView, snap.toView, ease(raw));
+  };
+
+  const previewTo = targetView => {
+    previewSnap = {
+      fromView: currentView(),
+      toView: targetView,
+      started: performance.now(),
+      duration: previewFollowDuration,
+    };
+    render();
+  };
 
   const projectedAxis = (axis, view = viewBasis) => {
     const x = dot(axis, view.right);
@@ -175,9 +203,18 @@
   };
 
   currentView = function(now = performance.now()) {
+    if (viewSnap?.fromView) return viewBetween(viewSnap, now);
+    if (previewSnap) {
+      const view = viewBetween(previewSnap, now);
+      if (now - previewSnap.started >= previewSnap.duration) {
+        viewBasis = previewSnap.toView;
+        previewSnap = null;
+      }
+      return view;
+    }
     if (!viewSnap) return viewBasis;
     const raw = Math.min(1, (now - viewSnap.started) / viewSnap.duration);
-    const eased = raw * raw * (3 - 2 * raw);
+    const eased = ease(raw);
     const progress = viewSnap.fromProgress + (viewSnap.toProgress - viewSnap.fromProgress) * eased;
     return rotateView(viewSnap.from, viewSnap.axis, viewSnap.direction * progress * turnAngle);
   };
@@ -185,6 +222,7 @@
   render = function() {
     baseRender();
     drawAxisPreview();
+    if (previewSnap) requestAnimationFrame(render);
   };
 
   canvas.addEventListener("pointerdown", event => {
@@ -222,12 +260,11 @@
     orbitPointer.direction = signedDistance >= 0 ? 1 : -1;
     orbitPointer.progress = Math.min(1, Math.abs(signedDistance) / dragDistanceForTurn);
     orbitPointer.committed ||= orbitPointer.progress >= commitProgress;
-    viewBasis = rotateView(
+    previewTo(rotateView(
       orbitPointer.from,
       orbitPointer.axis,
       orbitPointer.direction * orbitPointer.progress * turnAngle
-    );
-    render();
+    ));
   }, true);
 
   const finishOrbit = event => {
@@ -237,13 +274,14 @@
     orbitPointer = null;
     if (!pointer.axis) return;
 
-    const toProgress = pointer.committed ? 1 : 0;
+    const fromView = currentView();
+    const toView = pointer.committed
+      ? rotateView(pointer.from, pointer.axis, pointer.direction * turnAngle)
+      : pointer.from;
+    previewSnap = null;
     viewSnap = {
-      from: pointer.from,
-      axis: pointer.axis,
-      direction: pointer.direction,
-      fromProgress: pointer.progress,
-      toProgress,
+      fromView,
+      toView,
       started: performance.now(),
       duration: snapDuration,
     };
@@ -251,8 +289,7 @@
     playSound("camera");
     render();
     setTimeout(() => {
-      viewBasis = rotateView(pointer.from, pointer.axis, pointer.direction * toProgress * turnAngle);
-      viewBasis = pointer.committed ? viewBasis : pointer.from;
+      viewBasis = toView;
       viewSnap = null;
       cameraSnap = null;
       render();

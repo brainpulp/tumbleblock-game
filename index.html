@@ -30,7 +30,7 @@
     <footer>
       <button id="restart">Restart</button>
       <p id="hint">Click a face to slide. Drag a cube toward its destination to roll. Drag the background to orbit.</p>
-      <div class="footer-actions"><button id="scores">Scores</button><button id="levels">Levels</button></div>
+      <div class="footer-actions"><button id="clues">Clues</button><button id="scores">Scores</button><button id="levels">Levels</button></div>
     </footer>
   </main>
 
@@ -57,7 +57,28 @@
     <div id="scores-list" class="scores-list"></div>
   </dialog>
 
-  <script src="build-info.js?v=continuous-camera-debug-level-20260617-015546"></script>
+  <dialog id="clues-dialog">
+    <div class="dialog-head">
+      <h2>Clues</h2>
+      <button id="close-clues" aria-label="Close">&times;</button>
+    </div>
+    <div class="clue-panel">
+      <div class="clue-row"><span>Perfect route</span><strong id="perfect-route">Calculating</strong></div>
+      <div class="clue-row"><span>From here</span><strong id="current-route">Calculating</strong></div>
+      <p id="clue-copy" class="clue-copy">Finding the cleanest path.</p>
+      <div class="clue-actions">
+        <button id="next-clue">Next Clue</button>
+        <button id="show-hush">Hush Mode</button>
+      </div>
+      <div class="hush-controls" aria-label="Hush mode speed">
+        <button data-hush-speed="0.65">Slow · 30</button>
+        <button data-hush-speed="1">Easy · 18</button>
+        <button data-hush-speed="1.8">Quick · 8</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="build-info.js?v=solver-hush-clues-20260617-033427"></script>
   <script>
     window.TUMBLEBLOCK_SAVED_LEVEL = Number(localStorage.getItem("tumbleblock-level") || 0);
     const build = window.TUMBLEBLOCK_BUILD || {};
@@ -66,16 +87,17 @@
       : `Local build | ${build.commit || "uncommitted"}`;
   </script>
   <script src="game.js"></script>
-  <script src="camera-debug-level-controls.js?v=continuous-camera-debug-level-20260617-015546"></script>
+  <script src="camera-debug-level-controls.js?v=solver-hush-clues-20260617-033427"></script>
   <script src="core-controls.js"></script>
   <script src="animation-tween-controls.js"></script>
   <script src="movement-rules-controls.js"></script>
   <script src="over-roll-controls.js"></script>
-  <script src="surface-roll-controls.js?v=continuous-camera-debug-level-20260617-015546"></script>
-  <script src="vertical-orbit-controls.js?v=continuous-camera-debug-level-20260617-015546"></script>
+  <script src="surface-roll-controls.js?v=solver-hush-clues-20260617-033427"></script>
+  <script src="vertical-orbit-controls.js?v=solver-hush-clues-20260617-033427"></script>
   <script src="sound-controls.js"></script>
   <script src="extra-levels-controls.js"></script>
   <script src="level-thumbnails-controls.js"></script>
   <script src="score-controls.js"></script>
+  <script src="solver-controls.js?v=solver-hush-clues-20260617-033427"></script>
 </body>
 </html>
