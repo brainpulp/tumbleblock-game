@@ -1,4 +1,4 @@
 window.TUMBLEBLOCK_BUILD = {
-  deployedAt: "2026-06-16T20:09:21Z",
-  commit: "surface-drag-roll-20260616-200921",
+  deployedAt: "2026-06-17T01:55:46Z",
+  commit: "continuous-camera-debug-level-20260617-015546",
 };
