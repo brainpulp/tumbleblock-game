@@ -135,7 +135,7 @@
       ctx.restore();
     };
     ctx.save();
-    axes.forEach(item => {
+    axes.forEach((item, index) => {
       const selected = orbitPointer?.axis === item.axis;
       if (!selected) {
         if (orbitPointer?.axis) return;
@@ -211,15 +211,12 @@
     event.stopImmediatePropagation();
     const point = localPoint(event);
     const drag = { x: point.x - orbitPointer.start.x, y: point.y - orbitPointer.start.y };
-    if (!orbitPointer.axis) {
-      if (Math.max(Math.abs(drag.x), Math.abs(drag.y)) < 8) return;
-      const picked = chooseAxis(drag);
-      if (!picked) return;
-      orbitPointer.axis = picked.axis;
-      orbitPointer.axisScreen = { x: picked.x, y: picked.y };
-      orbitPointer.tangentScreen = picked.tangent;
-      orbitPointer.direction = picked.sign;
-    }
+    if (Math.max(Math.abs(drag.x), Math.abs(drag.y)) < 8) return;
+    const picked = chooseAxis(drag);
+    if (!picked) return;
+    orbitPointer.axis = picked.axis;
+    orbitPointer.axisScreen = { x: picked.x, y: picked.y };
+    orbitPointer.tangentScreen = picked.tangent;
 
     const signedDistance = drag.x * orbitPointer.tangentScreen.x + drag.y * orbitPointer.tangentScreen.y;
     orbitPointer.direction = signedDistance >= 0 ? 1 : -1;
