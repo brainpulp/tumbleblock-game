@@ -165,6 +165,7 @@
   function selectByStep(delta) {
     clearKeyboardPreview();
     selectedIndex = (selectedIndex + delta + cubes.length) % cubes.length;
+    playSound("select");
     showMessage(`Cube ${selectedIndex + 1}`);
     render();
   }
@@ -193,6 +194,7 @@
       return;
     }
     selectedIndex = next.index;
+    playSound("select");
     showMessage(`Cube ${selectedIndex + 1}`);
     render();
   }
