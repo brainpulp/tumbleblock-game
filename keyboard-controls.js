@@ -36,6 +36,9 @@
       animation = null;
       preview = null;
       render();
+    } else if (preview) {
+      preview = null;
+      render();
     } else {
       preview = null;
     }
@@ -76,19 +79,7 @@
     return [slide, roll].filter(Boolean);
   }
 
-  function drawPreview(option) {
-    animation = {
-      index: option.index,
-      destination: option.destination,
-      path: option.candidate?.path,
-      turns: option.candidate?.turns || 1,
-      type: option.mode,
-      preview: true,
-      keyboardPreview: true,
-      progress: 1,
-      started: performance.now(),
-      duration: 1,
-    };
+  function drawPreview() {
     render();
   }
 
@@ -123,9 +114,8 @@
   }
 
   function commitPreview() {
-    if (!preview?.choice || !animation?.keyboardPreview) return;
+    if (!preview?.choice || animation) return;
     const choice = preview.choice;
-    animation = null;
     preview = null;
     lastMode = choice.mode;
     if (choice.mode === "roll") {
@@ -136,8 +126,7 @@
         turns: choice.candidate.turns || 1,
         orient: orientationAfterCandidate(cubes[choice.index], choice.candidate),
         type: "roll",
-        duration: 1,
-        fromProgress: 1,
+        duration: (choice.candidate.turns === 2 ? 440 : 280),
         sound: "roll",
       });
     }
@@ -145,8 +134,7 @@
       index: choice.index,
       destination: choice.destination,
       type: "slide",
-      duration: 1,
-      fromProgress: 1,
+      duration: 180,
       sound: "slide",
     });
   }
@@ -248,7 +236,45 @@
   render = function() {
     baseRender();
     ensureSelection();
-    if (animation && !animation.keyboardPreview || !hitFaces.length) return;
+    if (preview?.choice && !animation) {
+      const choice = preview.choice;
+      const level = levels[levelIndex];
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      const scale = Math.min(w * .17, h * .12, 74) / Math.max(1, bounds(cubes).span / 4);
+      const origin = { x: w / 2, y: h * .65 };
+      const ghost = {
+        ...cubes[choice.index],
+        pos: choice.destination,
+        orient: choice.mode === "roll"
+          ? orientationAfterCandidate(cubes[choice.index], choice.candidate)
+          : cubes[choice.index].orient,
+      };
+      const occupied = new Set(cubes.map(cube => k(cube.pos)));
+      const view = currentView();
+      const faces = [];
+      DIRS.forEach(normal => {
+        if (occupied.has(k(add(ghost.pos, normal)))) return;
+        if (dot(normal, view.depth) <= 0) return;
+        const poly = polygonForFace(ghost.pos, normal, origin, scale);
+        const center = add(ghost.pos.map(value => value + .5), normal.map(value => value * .5));
+        faces.push({ normal, poly, depth: dot(center, view.depth) });
+      });
+      ctx.save();
+      ctx.globalAlpha = .42;
+      faces.sort((a, b) => a.depth - b.depth).forEach(face => {
+        ctx.beginPath();
+        face.poly.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+        ctx.closePath();
+        ctx.fillStyle = faceColor(ghost, face.normal, level.mode);
+        ctx.fill();
+        ctx.strokeStyle = "#1687ff";
+        ctx.lineWidth = Math.max(1.5, scale / 30);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+    if (animation || !hitFaces.length) return;
     ctx.save();
     ctx.strokeStyle = "#1687ff";
     ctx.lineWidth = 3;
