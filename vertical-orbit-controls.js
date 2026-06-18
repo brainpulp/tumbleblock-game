@@ -270,8 +270,8 @@
     const horizontal = Math.abs(direction.x) >= Math.abs(direction.y);
     const axis = horizontal ? [0, 0, 1] : [1, 0, 0];
     const turnDirection = horizontal
-      ? (direction.x >= 0 ? 1 : -1)
-      : (direction.y >= 0 ? 1 : -1);
+      ? (direction.x >= 0 ? -1 : 1)
+      : (direction.y >= 0 ? -1 : 1);
     viewSnap = {
       from: viewBasis,
       axis,
