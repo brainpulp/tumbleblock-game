@@ -45,19 +45,7 @@
   }
 
   function rollOptions(index) {
-    const occupied = new Set(cubes.filter((_, cubeIndex) => cubeIndex !== index).map(cube => k(cube.pos)));
-    return rollCandidates(index)
-      .filter(candidate =>
-        validDestination(index, candidate.destination) &&
-        candidate.path.every(step => !occupied.has(k(step.destination)))
-      )
-      .map(candidate => ({
-        mode: "roll",
-        index,
-        candidate,
-        destination: candidate.destination,
-        screen: candidate.screen,
-      }));
+    return [];
   }
 
   function moveOptions(index) {
