@@ -48,6 +48,8 @@
     const occupied = new Set(cubes.filter((_, cubeIndex) => cubeIndex !== index).map(cube => k(cube.pos)));
     return rollCandidates(index)
       .filter(candidate =>
+        (candidate.turns || 1) === 1 &&
+        candidate.destination.reduce((sum, value, axis) => sum + Math.abs(value - cubes[index].pos[axis]), 0) === 1 &&
         validDestination(index, candidate.destination) &&
         candidate.path.every(step =>
           !occupied.has(k(step.destination)) &&
