@@ -234,42 +234,7 @@
     if (keyboardActive) ensureMovableSelection();
 
     if (preview?.choice && !animation) {
-      const choice = preview.choice;
-      const level = levels[levelIndex];
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      const scale = Math.min(w * .17, h * .12, 74) / Math.max(1, bounds(cubes).span / 4);
-      const origin = { x: w / 2, y: h * .65 };
-      const ghost = {
-        ...cubes[choice.index],
-        pos: choice.destination,
-        orient: choice.mode === "roll"
-          ? orientationAfterCandidate(cubes[choice.index], choice.candidate)
-          : cubes[choice.index].orient,
-      };
-      const occupied = new Set(cubes.map(cube => k(cube.pos)));
-      const view = currentView();
-      const faces = [];
-      DIRS.forEach(normal => {
-        if (occupied.has(k(add(ghost.pos, normal)))) return;
-        if (dot(normal, view.depth) <= 0) return;
-        const poly = polygonForFace(ghost.pos, normal, origin, scale);
-        const center = add(ghost.pos.map(value => value + .5), normal.map(value => value * .5));
-        faces.push({ normal, poly, depth: dot(center, view.depth) });
-      });
-      ctx.save();
-      ctx.globalAlpha = .42;
-      faces.sort((a, b) => a.depth - b.depth).forEach(face => {
-        ctx.beginPath();
-        face.poly.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
-        ctx.closePath();
-        ctx.fillStyle = faceColor(ghost, face.normal, level.mode);
-        ctx.fill();
-        ctx.strokeStyle = "#1687ff";
-        ctx.lineWidth = Math.max(1.5, scale / 30);
-        ctx.stroke();
-      });
-      ctx.restore();
+      drawPreviewCluster(preview.choice);
     }
 
     if (!keyboardActive || animation || !hitFaces.length || !moveOptions(selectedIndex).length) return;
@@ -285,6 +250,51 @@
     });
     ctx.restore();
   };
+
+  function drawPreviewCluster(choice) {
+    const level = levels[levelIndex];
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const scale = Math.min(w * .17, h * .12, 74) / Math.max(1, bounds(cubes).span / 4);
+    const origin = { x: w / 2, y: h * .65 };
+    const ghost = {
+      ...cubes[choice.index],
+      pos: choice.destination,
+      orient: choice.mode === "roll"
+        ? orientationAfterCandidate(cubes[choice.index], choice.candidate)
+        : cubes[choice.index].orient,
+      previewGhost: true,
+    };
+    const cluster = cubes.concat(ghost);
+    const occupied = new Set(cluster.map(cube => k(cube.pos)));
+    const view = currentView();
+    const faces = [];
+
+    cluster.forEach(cube => {
+      DIRS.forEach(normal => {
+        if (occupied.has(k(add(cube.pos, normal)))) return;
+        if (dot(normal, view.depth) <= 0) return;
+        const poly = polygonForFace(cube.pos, normal, origin, scale);
+        const center = add(cube.pos.map(value => value + .5), normal.map(value => value * .5));
+        faces.push({ cube, normal, poly, depth: dot(center, view.depth) });
+      });
+    });
+
+    ctx.save();
+    faces.sort((a, b) => a.depth - b.depth).forEach(face => {
+      ctx.globalAlpha = face.cube.previewGhost ? .42 : 1;
+      ctx.beginPath();
+      face.poly.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
+      ctx.closePath();
+      ctx.fillStyle = faceColor(face.cube, face.normal, level.mode);
+      ctx.fill();
+      ctx.strokeStyle = face.cube.previewGhost ? "#1687ff" : "#202020";
+      ctx.lineWidth = face.cube.previewGhost ? Math.max(1.5, scale / 30) : Math.max(1.25, scale / 34);
+      ctx.lineJoin = "round";
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
 
   window.addEventListener("keydown", event => {
     const target = event.target;
