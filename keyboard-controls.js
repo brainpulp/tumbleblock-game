@@ -287,7 +287,9 @@
   };
 
   window.addEventListener("keydown", event => {
-    if (event.repeat || event.target.closest("button,input,textarea,select")) return;
+    const target = event.target;
+    const typingTarget = target instanceof Element && target.closest("button,input,textarea,select");
+    if (event.repeat || typingTarget) return;
     if (document.querySelector("dialog[open]")) return;
 
     if (event.key === "Tab") {
@@ -320,7 +322,7 @@
       return;
     }
 
-    const direction = keyDirections[event.code];
+    const direction = keyDirections[event.code] || keyDirections[event.key];
     if (direction) {
       event.preventDefault();
       turnCamera(direction);
