@@ -49,7 +49,10 @@
     return rollCandidates(index)
       .filter(candidate =>
         validDestination(index, candidate.destination) &&
-        candidate.path.every(step => !occupied.has(k(step.destination)))
+        candidate.path.every(step =>
+          !occupied.has(k(step.destination)) &&
+          validDestination(index, step.destination)
+        )
       )
       .map(candidate => ({
         mode: "roll",
