@@ -32,6 +32,7 @@
   const nearestCorner = basis => viewCorners.reduce((best, view) =>
     dot(view.depth, basis.depth) > dot(best.depth, basis.depth) ? view : best
   );
+  const snappedView = basis => nearestCorner(basis);
 
   const rotateAround = (vector, axis, angle) => {
     const cosine = Math.cos(angle);
@@ -64,7 +65,7 @@
     })
     .filter(Boolean);
 
-  let viewBasis = nearestCorner(currentView());
+  let viewBasis = snappedView(currentView());
 
   const chooseAxis = (drag, from = orbitPointer?.from || viewBasis) => {
     const length = Math.hypot(drag.x, drag.y);
@@ -257,8 +258,9 @@
     playSound("camera");
     render();
     setTimeout(() => {
-      viewBasis = rotateView(pointer.from, pointer.axis, pointer.direction * toProgress * turnAngle);
-      viewBasis = pointer.committed ? viewBasis : pointer.from;
+      viewBasis = pointer.committed
+        ? snappedView(rotateView(pointer.from, pointer.axis, pointer.direction * toProgress * turnAngle))
+        : snappedView(pointer.from);
       viewSnap = null;
       cameraSnap = null;
       render();
@@ -272,8 +274,10 @@
     const turnDirection = horizontal
       ? (direction.x >= 0 ? -1 : 1)
       : (direction.y >= 0 ? -1 : 1);
+    const fromView = snappedView(viewBasis);
+    viewBasis = fromView;
     viewSnap = {
-      from: viewBasis,
+      from: fromView,
       axis,
       direction: turnDirection,
       fromProgress: 0,
@@ -285,7 +289,7 @@
     playSound("camera");
     render();
     setTimeout(() => {
-      viewBasis = rotateView(viewBasis, axis, turnDirection * turnAngle);
+      viewBasis = snappedView(rotateView(fromView, axis, turnDirection * turnAngle));
       viewSnap = null;
       cameraSnap = null;
       render();
