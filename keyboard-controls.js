@@ -48,13 +48,8 @@
     const occupied = new Set(cubes.filter((_, cubeIndex) => cubeIndex !== index).map(cube => k(cube.pos)));
     return rollCandidates(index)
       .filter(candidate =>
-        (candidate.turns || 1) === 1 &&
-        candidate.destination.reduce((sum, value, axis) => sum + Math.abs(value - cubes[index].pos[axis]), 0) === 1 &&
         validDestination(index, candidate.destination) &&
-        candidate.path.every(step =>
-          !occupied.has(k(step.destination)) &&
-          validDestination(index, step.destination)
-        )
+        candidate.path.every(step => !occupied.has(k(step.destination)))
       )
       .map(candidate => ({
         mode: "roll",
@@ -149,7 +144,9 @@
       count: options.length,
     };
     render();
-    showMessage(`${preview.choice.mode.toUpperCase()} ${moveCursor + 1}/${options.length} - Enter commits`);
+    const destination = preview.choice.destination.join(",");
+    const turns = preview.choice.mode === "roll" ? ` ${preview.choice.candidate.turns || 1}q` : "";
+    showMessage(`${moveCursor + 1}/${options.length} ${preview.choice.mode.toUpperCase()}${turns} -> ${destination}`);
   }
 
   function commitPreview() {
