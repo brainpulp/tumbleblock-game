@@ -2,7 +2,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["main"]
+    # Deploy whatever gets pushed, from any branch, so work goes live immediately.
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
