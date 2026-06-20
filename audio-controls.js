@@ -1,3 +1,8 @@
+//@@BANNER@@ audio-controls.js
+//@@BANNER@@ Sound effects for moves and selection.
+//@@BANNER@@ Consolidated from: sound-controls.js
+//@@BANNER@@
+//@@BANNER@@ ===== sound-controls.js =====
 (() => {
   const basePlaySound = playSound;
 

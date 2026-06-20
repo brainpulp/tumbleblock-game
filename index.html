@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7f4ed">
   <title>Tumbleblock</title>
-  <link rel="stylesheet" href="style.css?v=top-keyboard-help-20260617-143620">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
@@ -82,7 +82,7 @@
     </div>
   </dialog>
 
-  <script src="build-info.js?v=camera-canonical-20260618-223817"></script>
+  <script src="build-info.js"></script>
   <script>
     window.TUMBLEBLOCK_SAVED_LEVEL = Number(localStorage.getItem("tumbleblock-level") || 0);
     const build = window.TUMBLEBLOCK_BUILD || {};
@@ -91,19 +91,12 @@
       : `Local build | ${build.commit || "uncommitted"}`;
   </script>
   <script src="game.js"></script>
-  <script src="camera-debug-level-controls.js?v=camera-debug-rehash-20260618-151117"></script>
-  <script src="core-controls.js"></script>
-  <script src="animation-tween-controls.js"></script>
-  <script src="movement-rules-controls.js"></script>
-  <script src="over-roll-controls.js"></script>
-  <script src="surface-roll-controls.js?v=fair-push-roll-20260617-042159"></script>
-  <script src="push-roll-controls.js?v=fair-push-roll-20260617-042159"></script>
-  <script src="vertical-orbit-controls.js?v=camera-canonical-20260618-223817"></script>
-  <script src="sound-controls.js?v=selection-sound-20260617-140435"></script>
-  <script src="extra-levels-controls.js"></script>
-  <script src="level-thumbnails-controls.js"></script>
+  <script src="mechanics-controls.js"></script>
+  <script src="camera-controls.js"></script>
+  <script src="audio-controls.js"></script>
+  <script src="levels-controls.js"></script>
   <script src="score-controls.js"></script>
-  <script src="solver-controls.js?v=fair-push-roll-20260617-042159"></script>
-  <script src="keyboard-controls.js?v=keyboard-slide-safe-20260618-223610"></script>
+  <script src="solver-controls.js"></script>
+  <script src="keyboard-controls.js"></script>
 </body>
 </html>

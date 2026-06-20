@@ -1,3 +1,8 @@
+//@@BANNER@@ solver-controls.js
+//@@BANNER@@ Optimal-route solver powering the Clues panel and hush mode.
+//@@BANNER@@ Consolidated from: solver-controls.js
+//@@BANNER@@
+//@@BANNER@@ ===== solver-controls.js =====
 (() => {
   const SOLVER_LIMIT = 160000;
   const CACHE_KEY = "tumbleblock-hush-used-v2";

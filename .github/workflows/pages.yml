@@ -32,6 +32,14 @@ jobs:
             commit: "${GITHUB_SHA:0:7}",
           };
           EOF
+      - name: Cache-bust asset URLs
+        shell: bash
+        # Stamp every local .js/.css reference in index.html with the commit SHA so
+        # each deploy busts the browser cache automatically. Source stays version-free;
+        # no more hand-edited "?v=" tags.
+        run: |
+          sha="${GITHUB_SHA:0:7}"
+          sed -E -i 's@(src|href)="([^":?]+\.(js|css))(\?v=[^"]*)?"@\1="\2?v='"$sha"'"@g' index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .

@@ -1,3 +1,8 @@
+//@@BANNER@@ score-controls.js
+//@@BANNER@@ Per-level scoring, records, and the score panel.
+//@@BANNER@@ Consolidated from: score-controls.js
+//@@BANNER@@
+//@@BANNER@@ ===== score-controls.js =====
 (() => {
   const STORAGE_KEY = "tumbleblock-scores";
   const scores = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");

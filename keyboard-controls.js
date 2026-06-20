@@ -1,3 +1,8 @@
+//@@BANNER@@ keyboard-controls.js
+//@@BANNER@@ Keyboard controls: cube selection, move cycling, commit, and view rotation.
+//@@BANNER@@ Consolidated from: keyboard-controls.js
+//@@BANNER@@
+//@@BANNER@@ ===== keyboard-controls.js =====
 (() => {
   let selectedIndex = 0;
   let preview = null;

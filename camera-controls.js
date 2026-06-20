@@ -1,3 +1,8 @@
+//@@BANNER@@ camera-controls.js
+//@@BANNER@@ Shared trackball / vertical-orbit camera controls for both configurations.
+//@@BANNER@@ Consolidated from: vertical-orbit-controls.js
+//@@BANNER@@
+//@@BANNER@@ ===== vertical-orbit-controls.js =====
 (() => {
   window.TUMBLEBLOCK_SCREEN_ORBIT = true;
   window.TUMBLEBLOCK_SHOW_CAMERA_AXES = !!window.TUMBLEBLOCK_CAMERA_DEBUG;
