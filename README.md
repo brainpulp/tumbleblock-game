@@ -11,8 +11,8 @@ Open `index.html` in a modern browser.
 - Click an exposed cube face to push the cube one space.
 - Drag a cube to roll it 90 degrees around a connected neighbor.
 - A roll uses the shortest connected edge path toward the drag direction, up to two quarter-turns.
-- Drag empty space to orbit both configurations with the shared trackball camera.
-- Drag empty space to orbit both configurations.
+- Drag empty space to orbit both configurations freely; release to snap to the nearest isometric view.
+- Arrow keys rotate the same shared camera in 90-degree steps.
 - Restarting is free. There is no undo; reversing a move costs a move.
 
 ## Project structure
