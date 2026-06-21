@@ -132,6 +132,7 @@
       label.textContent = `${index + 1} - ${level.title}`;
       button.title = level.title;
       button.classList.toggle("current", index === levelIndex);
+      button.classList.toggle("debug-level", !!level.debugOnly);
       button.append(thumbnail, label);
       button.onclick = () => { ui.levelDialog.close(); loadLevel(index); };
       ui.levelGrid.append(button);

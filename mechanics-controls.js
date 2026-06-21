@@ -7,9 +7,9 @@
   const debugRequested = new URLSearchParams(location.search).has("cameraDebug") ||
     location.hash === "#cameraDebug";
   const debugLevel = {
-    title: "Camera Debug",
+    title: "🎥 Camera Debug",
     mode: "faces",
-    hint: "Single cube camera test. Drag the background only.",
+    hint: "Camera test level. Drag the background to orbit; arrow keys turn. Use the SCREEN/CYCLE/LOCK switch (or press M) to compare up/down modes.",
     start: [p(0, 0, 0)],
     target: [p(0, 0, 0)],
     debugOnly: true,
