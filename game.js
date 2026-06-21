@@ -256,7 +256,49 @@ function render() {
   ctx.lineTo(w * .66, h * .39);
   ctx.stroke();
   ctx.setLineDash([]);
+  drawAxes(w, h);
   if (now < shakeUntil || animation || cameraSnap) requestAnimationFrame(render);
+}
+
+// Debug axis gizmo: shows the X (red), Y (green), Z (blue) directions under the
+// current camera so we can see how world axes map to the screen. Anchored in the
+// bottom-left corner; rotates live with the camera.
+function drawAxes(w, h) {
+  const view = currentView();
+  const origin = { x: 64, y: h - 64 };
+  const len = 44;
+  const axes = [
+    { dir: [1, 0, 0], color: "#e0473e", label: "X" },
+    { dir: [0, 1, 0], color: "#3fae57", label: "Y" },
+    { dir: [0, 0, 1], color: "#3f7fe0", label: "Z" },
+  ];
+  // Draw far-to-near so nearer axes overlap correctly.
+  axes
+    .map(a => ({ ...a, depth: dot(a.dir, view.depth) }))
+    .sort((a, b) => a.depth - b.depth)
+    .forEach(({ dir, color, label }) => {
+      const tip = {
+        x: origin.x + dot(dir, view.right) * len,
+        y: origin.y - dot(dir, view.up) * len,
+      };
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(tip.x, tip.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = "bold 13px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const labelX = origin.x + dot(dir, view.right) * (len + 12);
+      const labelY = origin.y - dot(dir, view.up) * (len + 12);
+      ctx.fillText(label, labelX, labelY);
+    });
 }
 
 function pointInPoly(point, poly) {
