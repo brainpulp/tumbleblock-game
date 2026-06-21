@@ -42,9 +42,9 @@
   };
 
   const baseSnapCamera = snapCamera;
-  snapCamera = function(targetYaw, targetPitch) {
-    if (targetYaw !== cameraYaw || targetPitch !== cameraPitch) playSound("camera");
-    return baseSnapCamera(targetYaw, targetPitch);
+  snapCamera = function(target) {
+    if (Math.abs(qDot(target, camQuat)) < 0.9999) playSound("camera");
+    return baseSnapCamera(target);
   };
 
   const baseCompleteLevel = completeLevel;

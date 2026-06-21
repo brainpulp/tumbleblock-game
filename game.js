@@ -71,9 +71,106 @@ let messageTimer = 0;
 let won = false;
 let animation = null;
 let audio = null;
-let cameraYaw = -Math.PI / 4;
-let cameraPitch = Math.atan(1 / Math.sqrt(2));
 let cameraSnap = null;
+
+// ---- Camera orientation as a quaternion [w, x, y, z] ----------------------
+// The camera frame (right/up/depth, all in world space) is derived by rotating
+// the basis axes by camQuat. World axes never move; only the camera orbits.
+const qMul = (a, b) => [
+  a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+  a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+  a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+  a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0],
+];
+const qLen = q => Math.hypot(q[0], q[1], q[2], q[3]) || 1;
+const qNorm = q => q.map(n => n / qLen(q));
+const qDot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + a[3]*b[3];
+const qFromAxis = (axis, angle) => {
+  const m = Math.hypot(...axis) || 1, h = angle / 2, s = Math.sin(h) / m;
+  return [Math.cos(h), axis[0]*s, axis[1]*s, axis[2]*s];
+};
+// Rotate world vector v by quaternion q.
+const qRot = (q, v) => {
+  const [w, x, y, z] = q;
+  const t = [2*(y*v[2]-z*v[1]), 2*(z*v[0]-x*v[2]), 2*(x*v[1]-y*v[0])];
+  return [
+    v[0] + w*t[0] + (y*t[2]-z*t[1]),
+    v[1] + w*t[1] + (z*t[0]-x*t[2]),
+    v[2] + w*t[2] + (x*t[1]-y*t[0]),
+  ];
+};
+const qSlerp = (a, b, t) => {
+  let d = qDot(a, b);
+  if (d < 0) { b = b.map(n => -n); d = -d; }
+  if (d > 0.9995) return qNorm(a.map((n, i) => n + (b[i] - n) * t));
+  const theta = Math.acos(Math.min(1, d)), s = Math.sin(theta);
+  const wa = Math.sin((1 - t) * theta) / s, wb = Math.sin(t * theta) / s;
+  return a.map((n, i) => n * wa + b[i] * wb);
+};
+const norm3 = v => { const m = Math.hypot(...v) || 1; return v.map(n => n / m); };
+
+// Quaternion from a 3x3 rotation matrix (rows). The matrix must be a proper
+// rotation (det +1); the projection frame itself is left-handed, so we never
+// feed that frame in directly -- see frameRot below.
+function matToQuat(m) {
+  const tr = m[0][0] + m[1][1] + m[2][2];
+  let q;
+  if (tr > 0) {
+    const s = Math.sqrt(tr + 1) * 2;
+    q = [s / 4, (m[2][1]-m[1][2]) / s, (m[0][2]-m[2][0]) / s, (m[1][0]-m[0][1]) / s];
+  } else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) {
+    const s = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2;
+    q = [(m[2][1]-m[1][2]) / s, s / 4, (m[0][1]+m[1][0]) / s, (m[0][2]+m[2][0]) / s];
+  } else if (m[1][1] > m[2][2]) {
+    const s = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2;
+    q = [(m[0][2]-m[2][0]) / s, (m[0][1]+m[1][0]) / s, s / 4, (m[1][2]+m[2][1]) / s];
+  } else {
+    const s = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2;
+    q = [(m[1][0]-m[0][1]) / s, (m[0][2]+m[2][0]) / s, (m[1][2]+m[2][1]) / s, s / 4];
+  }
+  return qNorm(q);
+}
+
+// The camera orientation is a proper rotation applied to this fixed isometric
+// base frame (matches the old yaw=-45deg / iso-pitch start). Storing the
+// rotation -- not the left-handed frame -- keeps the quaternion math valid.
+const BASE_FRAME = { right: norm3([1, 1, 0]), up: norm3([1, -1, 2]), depth: norm3([-1, 1, 1]) };
+
+// Rotation carrying BASE_FRAME onto another like-handed frame f: R = Fcols * Bcols^T.
+function frameRot(f) {
+  const B = BASE_FRAME, m = [[0,0,0],[0,0,0],[0,0,0]];
+  const bc = [B.right, B.up, B.depth], fc = [f.right, f.up, f.depth];
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++)
+    m[i][j] = fc[0][i]*bc[0][j] + fc[1][i]*bc[1][j] + fc[2][i]*bc[2][j];
+  return matToQuat(m);
+}
+
+// All isometric orientations: depth on a cube body diagonal with one world axis
+// projecting straight up (both vertex-up and vertex-down). Snapping on release
+// picks the nearest of these; arrow turns also land on one.
+const ISO_TARGETS = (() => {
+  const targets = [], seen = [];
+  for (const sx of [1, -1]) for (const sy of [1, -1]) for (const sz of [1, -1]) {
+    const depth = norm3([sx, sy, sz]);
+    for (const axis of [[1,0,0],[0,1,0],[0,0,1]]) for (const sign of [1, -1]) {
+      const proj = sub(axis, depth.map(n => n * dot(axis, depth)));
+      if (Math.hypot(...proj) < 1e-6) continue;
+      const up = norm3(proj).map(n => n * sign);
+      const q = frameRot({ right: norm3(cross(depth, up)), up, depth });
+      if (seen.some(s => Math.abs(qDot(s, q)) > 0.9999)) continue;
+      seen.push(q);
+      targets.push(q);
+    }
+  }
+  return targets;
+})();
+
+const nearestIso = q => ISO_TARGETS.reduce(
+  (best, t) => (Math.abs(qDot(t, q)) > Math.abs(qDot(best, q)) ? t : best),
+  ISO_TARGETS[0],
+);
+
+let camQuat = [1, 0, 0, 0]; // identity rotation -> BASE_FRAME (the start view)
 
 function loadLevel(index) {
   levelIndex = index;
@@ -108,15 +205,12 @@ function currentView(now = performance.now()) {
   if (cameraSnap) {
     const raw = Math.min(1, (now - cameraSnap.started) / cameraSnap.duration);
     const t = raw * raw * (3 - 2 * raw);
-    cameraYaw = cameraSnap.fromYaw + cameraSnap.yawDelta * t;
-    cameraPitch = cameraSnap.fromPitch + (cameraSnap.toPitch - cameraSnap.fromPitch) * t;
+    camQuat = qSlerp(cameraSnap.from, cameraSnap.to, t);
   }
-  const cy = Math.cos(cameraYaw), sy = Math.sin(cameraYaw);
-  const cp = Math.cos(cameraPitch), sp = Math.sin(cameraPitch);
   return {
-    right: [cy, -sy, 0],
-    up: [-sy * sp, -cy * sp, cp],
-    depth: [sy * cp, cy * cp, sp],
+    right: qRot(camQuat, BASE_FRAME.right),
+    up: qRot(camQuat, BASE_FRAME.up),
+    depth: qRot(camQuat, BASE_FRAME.depth),
   };
 }
 
@@ -485,23 +579,17 @@ function blocked() {
   return false;
 }
 
-function shortestAngle(from, to) {
-  return ((to - from + Math.PI) % (Math.PI * 2)) - Math.PI;
-}
-
-function snapCamera(targetYaw, targetPitch) {
+function snapCamera(target) {
+  const to = qDot(camQuat, target) < 0 ? target.map(n => -n) : target;
   cameraSnap = {
-    fromYaw: cameraYaw,
-    fromPitch: cameraPitch,
-    yawDelta: shortestAngle(cameraYaw, targetYaw),
-    toPitch: targetPitch,
+    from: camQuat.slice(),
+    to,
     started: performance.now(),
     duration: 260,
   };
   render();
   setTimeout(() => {
-    cameraYaw = targetYaw;
-    cameraPitch = targetPitch;
+    camQuat = to;
     cameraSnap = null;
     render();
   }, cameraSnap.duration);
@@ -569,24 +657,8 @@ canvas.addEventListener("pointerdown", event => {
   pointer = { start: point, last: point, face, orbit: !face, orbitDrag: [0, 0], time: performance.now() };
 });
 
-canvas.addEventListener("pointermove", event => {
-  if (!pointer?.orbit || animation) return;
-  const point = localPoint(event);
-  const dx = point.x - pointer.last.x;
-  const dy = point.y - pointer.last.y;
-  pointer.last = point;
-  pointer.orbitDrag[0] += dx;
-  pointer.orbitDrag[1] += dy;
-  if (cameraSnap || Math.max(Math.abs(pointer.orbitDrag[0]), Math.abs(pointer.orbitDrag[1])) < 42) return;
-  const isoPitch = Math.atan(1 / Math.sqrt(2));
-  const quarter = Math.PI / 2;
-  if (Math.abs(pointer.orbitDrag[0]) >= Math.abs(pointer.orbitDrag[1])) {
-    snapCamera(cameraYaw - Math.sign(pointer.orbitDrag[0]) * quarter, cameraPitch);
-  } else {
-    snapCamera(cameraYaw, pointer.orbitDrag[1] > 0 ? isoPitch : -isoPitch);
-  }
-  pointer.orbitDrag = [0, 0];
-});
+// Orbiting empty space is handled by camera-controls.js (arcball free orbit).
+// The native pointer handlers only deal with cubes (slide/roll).
 
 canvas.addEventListener("pointerup", event => {
   if (!pointer || won || animation) return;
