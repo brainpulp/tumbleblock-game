@@ -354,45 +354,87 @@ function render() {
   if (now < shakeUntil || animation || cameraSnap) requestAnimationFrame(render);
 }
 
-// Debug axis gizmo: shows the X (red), Y (green), Z (blue) directions under the
-// current camera so we can see how world axes map to the screen. Anchored in the
-// bottom-left corner; rotates live with the camera.
+// Debug axis overlay: shows the world X (red), Y (green), Z (blue) axes under the
+// current camera so we can see how they map to the screen. Only drawn in the
+// Camera Debug level (window.TUMBLEBLOCK_SHOW_CAMERA_AXES). The axis that the
+// vertical (up/down) arrow keys will currently rotate about is highlighted, so the
+// "up/down alternates between axes" behaviour is visible live as you press keys.
 function drawAxes(w, h) {
+  if (!window.TUMBLEBLOCK_SHOW_CAMERA_AXES) return;
   const view = currentView();
-  const origin = { x: 64, y: h - 64 };
-  const len = 44;
+  const worldAxes = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  // Mirror camera-controls.js: vertical arrows turn about the world axis that
+  // currently reads most as "screen right".
+  const vAxis = worldAxes.reduce((best, a) =>
+    Math.abs(dot(a, view.right)) > Math.abs(dot(best, view.right)) ? a : best);
+  const vLabel = ["X", "Y", "Z"][worldAxes.findIndex(a => a === vAxis)];
+
+  const origin = { x: w / 2, y: h * 0.86 };
+  const len = Math.min(w, h) * 0.09;
   const axes = [
     { dir: [1, 0, 0], color: "#e0473e", label: "X" },
     { dir: [0, 1, 0], color: "#3fae57", label: "Y" },
     { dir: [0, 0, 1], color: "#3f7fe0", label: "Z" },
   ];
-  // Draw far-to-near so nearer axes overlap correctly.
+
+  ctx.save();
+  // faint reference ring
+  ctx.strokeStyle = "rgba(58, 53, 44, .15)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(origin.x, origin.y, len * 1.18, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // draw far-to-near so nearer axes overlap correctly
   axes
-    .map(a => ({ ...a, depth: dot(a.dir, view.depth) }))
+    .map(a => ({ ...a, depth: dot(a.dir, view.depth), active: eq(a.dir, vAxis) }))
     .sort((a, b) => a.depth - b.depth)
-    .forEach(({ dir, color, label }) => {
-      const tip = {
-        x: origin.x + dot(dir, view.right) * len,
-        y: origin.y - dot(dir, view.up) * len,
-      };
+    .forEach(({ dir, color, label, active }) => {
+      const sx = dot(dir, view.right), sy = dot(dir, view.up);
+      const plus = { x: origin.x + sx * len, y: origin.y - sy * len };
+      const minus = { x: origin.x - sx * len, y: origin.y + sy * len };
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
-      ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
+      // negative half (dim)
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = active ? 3 : 2;
       ctx.beginPath();
       ctx.moveTo(origin.x, origin.y);
-      ctx.lineTo(tip.x, tip.y);
+      ctx.lineTo(minus.x, minus.y);
+      ctx.stroke();
+      // positive half (bright; thicker when this is the active vertical-turn axis)
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = active ? 5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(plus.x, plus.y);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(tip.x, tip.y, 3, 0, Math.PI * 2);
+      ctx.arc(plus.x, plus.y, active ? 4.5 : 3.5, 0, Math.PI * 2);
       ctx.fill();
+      if (active) {
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(plus.x, plus.y, 9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       ctx.font = "bold 13px system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const labelX = origin.x + dot(dir, view.right) * (len + 12);
-      const labelY = origin.y - dot(dir, view.up) * (len + 12);
-      ctx.fillText(label, labelX, labelY);
+      ctx.fillText(label, origin.x + sx * (len + 14), origin.y - sy * (len + 14));
     });
+
+  // live readout
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#3a352c";
+  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(`camera debug · up/down arrow turns about ${vLabel}`, origin.x, origin.y - len * 1.5);
+  ctx.restore();
 }
 
 function pointInPoly(point, poly) {
