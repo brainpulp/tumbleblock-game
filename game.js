@@ -363,11 +363,20 @@ function drawAxes(w, h) {
   if (!window.TUMBLEBLOCK_SHOW_CAMERA_AXES) return;
   const view = currentView();
   const worldAxes = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
-  // Mirror camera-controls.js: vertical arrows turn about the world axis that
-  // currently reads most as "screen right".
-  const vAxis = worldAxes.reduce((best, a) =>
-    Math.abs(dot(a, view.right)) > Math.abs(dot(best, view.right)) ? a : best);
-  const vLabel = ["X", "Y", "Z"][worldAxes.findIndex(a => a === vAxis)];
+  const mode = window.TUMBLEBLOCK_VMODE || "screen";
+
+  // Which axis (if any) to highlight, and what the up/down keys will do, depend
+  // on the selected vertical-arrow mode.
+  let highlight = null, readout;
+  if (mode === "lock") {
+    highlight = window.TUMBLEBLOCK_VMODE_LOCK_AXIS || [1, 0, 0];
+    const label = ["X", "Y", "Z"][worldAxes.findIndex(a => eq(a, highlight))];
+    readout = `up/down (lock) turns about ${label}`;
+  } else if (mode === "cycle") {
+    readout = "up/down (cycle) steps elevation, heading kept";
+  } else {
+    readout = "up/down (screen) tilts about the screen horizontal";
+  }
 
   const origin = { x: w / 2, y: h * 0.86 };
   const len = Math.min(w, h) * 0.09;
@@ -387,7 +396,7 @@ function drawAxes(w, h) {
 
   // draw far-to-near so nearer axes overlap correctly
   axes
-    .map(a => ({ ...a, depth: dot(a.dir, view.depth), active: eq(a.dir, vAxis) }))
+    .map(a => ({ ...a, depth: dot(a.dir, view.depth), active: !!highlight && eq(a.dir, highlight) }))
     .sort((a, b) => a.depth - b.depth)
     .forEach(({ dir, color, label, active }) => {
       const sx = dot(dir, view.right), sy = dot(dir, view.up);
@@ -433,7 +442,49 @@ function drawAxes(w, h) {
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(`camera debug · up/down arrow turns about ${vLabel}`, origin.x, origin.y - len * 1.5);
+  ctx.fillText(`camera debug · ${readout}`, origin.x, origin.y - len * 1.5);
+  ctx.restore();
+
+  drawModeSwitch(w, h, origin.y - len * 1.5 - 30, mode);
+}
+
+// Clickable up/down-mode switch shown in the Camera Debug overlay. Records each
+// pill's screen rect in TUMBLEBLOCK_VMODE_RECTS so camera-controls.js can hit-test
+// clicks. Centered row of pills above the axis readout.
+function drawModeSwitch(w, h, rowY, mode) {
+  const modes = window.TUMBLEBLOCK_VMODE_MODES || ["screen", "cycle", "lock"];
+  ctx.save();
+  ctx.font = "700 11px system-ui, sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+  const padX = 12, gap = 8, pillH = 22;
+  const widths = modes.map(m => Math.ceil(ctx.measureText(m.toUpperCase()).width) + padX * 2);
+  const total = widths.reduce((s, n) => s + n, 0) + gap * (modes.length - 1);
+  let x = w / 2 - total / 2;
+  const rects = [];
+  modes.forEach((m, i) => {
+    const pw = widths[i];
+    const active = m === mode;
+    const y = rowY - pillH / 2;
+    const r = 11;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + pw, y, x + pw, y + pillH, r);
+    ctx.arcTo(x + pw, y + pillH, x, y + pillH, r);
+    ctx.arcTo(x, y + pillH, x, y, r);
+    ctx.arcTo(x, y, x + pw, y, r);
+    ctx.closePath();
+    ctx.fillStyle = active ? "#3a352c" : "rgba(58, 53, 44, .08)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(58, 53, 44, .35)";
+    ctx.stroke();
+    ctx.fillStyle = active ? "#f7f4ed" : "#3a352c";
+    ctx.fillText(m.toUpperCase(), x + pw / 2, y + pillH / 2 + 0.5);
+    rects.push({ name: m, x, y, w: pw, h: pillH });
+    x += pw + gap;
+  });
+  window.TUMBLEBLOCK_VMODE_RECTS = rects;
   ctx.restore();
 }
 
