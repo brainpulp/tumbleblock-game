@@ -1,0 +1,15 @@
+{
+  "name": "Tumbleblock",
+  "short_name": "Tumbleblock",
+  "description": "A spatial puzzle about sliding and tumbling connected cubes into a target shape.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f4ed",
+  "theme_color": "#f7f4ed",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
