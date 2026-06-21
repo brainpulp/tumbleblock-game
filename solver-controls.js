@@ -113,7 +113,7 @@
           sourceOrient: [...cube.orient],
           destination: [...candidate.destination],
           candidate: clone(candidate),
-          label: candidate.turns === 2 ? "over-roll" : candidate.surface ? "surface roll" : "roll",
+          label: candidate.surface ? "surface roll" : "roll",
         });
       });
     });
