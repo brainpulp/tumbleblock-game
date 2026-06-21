@@ -1,7 +1,7 @@
 :root { color-scheme: light; --ink:#191919; --paper:#f7f4ed; --line:#222; --muted:#8e8a80; --accent:#ff315b; }
 * { box-sizing:border-box; }
-body { margin:0; min-height:100vh; background:var(--paper); color:var(--ink); font-family:"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif; display:grid; place-items:center; overflow:hidden; }
-main { width:min(100vw,760px); height:100vh; min-height:600px; display:grid; grid-template-rows:auto 1fr auto; padding:clamp(14px,3vw,28px); }
+body { margin:0; min-height:100vh; min-height:100dvh; background:var(--paper); color:var(--ink); font-family:"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif; display:grid; place-items:center; overflow:hidden; touch-action:manipulation; }
+main { width:min(100vw,760px); height:100vh; height:100dvh; display:grid; grid-template-rows:auto 1fr auto; padding:clamp(14px,3vw,28px); padding-bottom:max(clamp(14px,3vw,28px),env(safe-area-inset-bottom)); }
 header,footer { display:flex; align-items:center; justify-content:space-between; gap:16px; }
 header { border-bottom:3px solid var(--ink); padding-bottom:12px; } footer { border-top:3px solid var(--ink); padding-top:12px; position:relative; }
 h1,h2,p { margin:0; } h1 { font-size:clamp(22px,4vw,34px); letter-spacing:-1px; } .eyebrow { color:var(--accent); font-size:11px; letter-spacing:2px; text-transform:uppercase; }
@@ -31,4 +31,15 @@ dialog { width:min(92vw,500px); border:3px solid var(--ink); background:var(--pa
 .hush-controls { display:none; grid-template-columns:repeat(3,1fr); }
 .hush-controls.show { display:grid; }
 .hush-controls button { padding-inline:7px; }
-@media (max-width:560px) { main { padding:12px; min-height:520px; } header { padding-bottom:8px; } .keyboard-help { max-width:260px; } footer { padding-top:8px; } #hint { display:none; } .record-strip { font-size:10px; max-width:calc(100vw - 24px); overflow:hidden; text-overflow:ellipsis; } .stats { gap:10px; } button { padding:7px 9px; font-size:10px; } }
+@media (max-width:560px) { main { padding:12px; padding-bottom:max(12px,env(safe-area-inset-bottom)); min-height:0; } header { padding-bottom:8px; } .keyboard-help,.build-stamp { display:none; } footer { padding-top:8px; } #hint { display:none; } .record-strip { font-size:10px; max-width:calc(100vw - 24px); overflow:hidden; text-overflow:ellipsis; } .stats { gap:10px; } button { padding:9px 11px; font-size:10px; } }
+/* Touch devices: the keyboard hint is irrelevant. */
+@media (hover:none) and (pointer:coarse) { .keyboard-help,#hint { display:none; } }
+/* Portrait only: on a phone held in landscape, hide the game and ask to rotate. */
+.rotate-notice { display:none; }
+@media (pointer:coarse) and (orientation:landscape) and (max-height:600px) {
+  main { display:none; }
+  .rotate-notice { display:flex; position:fixed; inset:0; z-index:50; flex-direction:column; align-items:center; justify-content:center; gap:16px; text-align:center; padding:24px; background:var(--paper); color:var(--ink); }
+  .rotate-notice .rotate-icon { font-size:48px; line-height:1; }
+  .rotate-notice p { margin:0; font-size:16px; max-width:300px; }
+  .rotate-notice .eyebrow { font-size:11px; }
+}
