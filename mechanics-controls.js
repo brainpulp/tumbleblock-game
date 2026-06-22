@@ -173,14 +173,33 @@
     return { ...cube, pos: center.map(n => n - .5), visualRotations };
   };
 
-  function chooseRoll(index, drag) {
+  const candKey = c => k(c.destination) + "|" + c.turns + "|" + k(c.path[0].axis);
+
+  // Hysteresis keeps the roll preview from flickering when several candidates
+  // project to nearby screen directions (common with 3+ options in iso view).
+  const ROLL_ACQUIRE = .45; // alignment needed to first lock onto a roll
+  const ROLL_KEEP = 0;      // keep the latched roll while it stays at least this aligned
+  const ROLL_MARGIN = .15;  // a rival must beat the latched roll by this much to steal it
+
+  function chooseRoll(index, drag, latchedKey) {
     const length = Math.hypot(...drag);
     if (length < 10) return null;
-    return rollCandidates(index).map(candidate => {
+    const scored = rollCandidates(index).map(candidate => {
       const candidateLength = Math.hypot(...candidate.screen);
-      return { candidate, score: candidateLength ? dot(drag, candidate.screen) / (length * candidateLength) : -1 };
-    }).sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns)
-      .find(entry => entry.score >= .45)?.candidate || null;
+      const score = candidateLength ? dot(drag, candidate.screen) / (length * candidateLength) : -1;
+      return { candidate, score, key: candKey(candidate) };
+    }).sort((a, b) => b.score - a.score || a.candidate.turns - b.candidate.turns);
+    const best = scored[0];
+    if (!best) return null;
+    if (latchedKey) {
+      const current = scored.find(entry => entry.key === latchedKey);
+      // Stay latched: only switch when a rival wins by a clear margin, and keep
+      // showing the latched roll even if its score dips below the acquire bar.
+      if (current && current.score >= ROLL_KEEP && best.score - current.score < ROLL_MARGIN) {
+        return current.candidate;
+      }
+    }
+    return best.score >= ROLL_ACQUIRE ? best.candidate : null;
   }
 
   rollCandidates = function(index) {
@@ -220,7 +239,7 @@
     if (!face) return;
     event.stopImmediatePropagation();
     canvas.setPointerCapture(event.pointerId);
-    active = { pointerId: event.pointerId, start: point, face };
+    active = { pointerId: event.pointerId, start: point, face, latchedKey: null };
   }, true);
 
   canvas.addEventListener("pointermove", event => {
@@ -228,12 +247,14 @@
     event.stopImmediatePropagation();
     const point = localPoint(event);
     const drag = [point.x - active.start.x, point.y - active.start.y];
-    const candidate = chooseRoll(active.face.cubeIndex, drag);
+    const candidate = chooseRoll(active.face.cubeIndex, drag, active.latchedKey);
     if (!candidate) {
+      active.latchedKey = null;
       animation = null;
       render();
       return;
     }
+    active.latchedKey = candKey(candidate);
     const length = Math.hypot(...candidate.screen);
     const progress = Math.max(0, Math.min(1, dot(drag, candidate.screen) / (length * length)));
     animation = { index: active.face.cubeIndex, destination: candidate.destination, path: candidate.path, turns: candidate.turns, type: "roll", preview: true, progress, started: performance.now(), duration: 1 };
