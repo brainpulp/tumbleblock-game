@@ -235,6 +235,10 @@
   canvas.addEventListener("pointerdown", event => {
     if (animation || cameraSnap) return;
     const point = localPoint(event);
+    // Yield clicks on the camera-debug mode switch so its handler can claim them,
+    // even when a pill overlaps a cube.
+    if (window.TUMBLEBLOCK_SHOW_CAMERA_AXES && (window.TUMBLEBLOCK_VMODE_RECTS || []).some(r =>
+      point.x >= r.x && point.x <= r.x + r.w && point.y >= r.y && point.y <= r.y + r.h)) return;
     const face = [...hitFaces].reverse().find(item => pointInPoly(point, item.poly));
     if (!face) return;
     event.stopImmediatePropagation();
